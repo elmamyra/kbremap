@@ -3,6 +3,8 @@ from Xlib import X
 
 ALT, CTRL, SHIFT, SUPER, NUM_LOCK, CAPS_LOCK, ALT_GR = range(7)
 
+TEXT, LAUNCHER, SHORTCUT = range(3)
+
 
 MODIFIER_MASK = {   
     ALT: X.Mod1Mask,
@@ -45,3 +47,4 @@ KEYBOARD_COLOR = {
 }
 
 
+menuList = (TEXT, LAUNCHER, SHORTCUT)
