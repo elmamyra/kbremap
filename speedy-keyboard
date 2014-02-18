@@ -1,0 +1,15 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+from PySide.QtGui import QApplication
+from PySide.QtCore import QCoreApplication
+
+from mainWindow import MainWindow
+import sys
+
+app = QApplication(sys.argv)
+QCoreApplication.setOrganizationName("speedy-keyboard")
+QCoreApplication.setApplicationName("speedy-keyboard")
+tray = MainWindow()
+sys.exit(app.exec_())
+
+
