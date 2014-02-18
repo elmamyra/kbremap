@@ -9,7 +9,7 @@ import sys
 app = QApplication(sys.argv)
 QCoreApplication.setOrganizationName("speedy-keyboard")
 QCoreApplication.setApplicationName("speedy-keyboard")
-tray = MainWindow()
+win = MainWindow()
 sys.exit(app.exec_())
 
 
