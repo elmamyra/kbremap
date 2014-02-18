@@ -7,6 +7,7 @@ from PySide.QtCore import *
 from keyboardview import KeyboardView
 from mapping import Mapping
 import icons
+import dialogEditor
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -53,7 +54,7 @@ class MainWindow(QMainWindow):
             
         
         quit_ = menuFichier.addAction(self.tr("Quit"), self.close)
-        quit_.setIcon(icons.app('application-exit'))
+        quit_.setIcon(icons.get('application-exit'))
         self.setMenuBar(menu)
     
     def findItem(self, keycode, modId):
@@ -69,9 +70,15 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.keyboardEditor)
         self.setCentralWidget(centralWidget)
         
+        self.keyboardEditor.keyDoubleClicked.connect(self.SlotEditKey)
+        
     def slotKeyboardModel(self, act):
         self.keyboardEditor.setModel(act.data())
     
+    def SlotEditKey(self, key):
+        if not key.isModifier():
+            dlg = dialogEditor.DialogEditor(self)
+            dlg.exec_()
     
     def closeEvent(self, event):
         settings = QSettings()
