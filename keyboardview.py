@@ -108,9 +108,9 @@ class KeyBase(object):
         self.content.setPos(self.getCenter(self.content.boundingRect()))
         self.setToolTip('')
         
-    def setIcon(self, cat, name, tooltip='', sizeCoef = 0.5):
+    def setIcon(self, name, tooltip='', sizeCoef = 0.5):
         self.clear()
-        icon = icons.keys(cat, name)
+        icon = icons.get(name)
         size = int(self.view().keySize()*sizeCoef)
         pix = icon.pixmap(size, size)
         self.content = QGraphicsPixmapItem(pix, self)
@@ -284,9 +284,9 @@ class KeyboardView(QGraphicsView):
                     elif mod == d.CTRL:
                         key.setText('Ctrl')
                     elif mod == d.SHIFT:
-                        key.setIcon('arrows', 'shift')
+                        key.setIcon('arrow-shift')
                     elif mod == d.SUPER:
-                        key.setIcon('miscellaneous', 'linux', 'Super')
+                        key.setIcon('linux', 'Super')
                     elif mod == d.NUM_LOCK:
                         key.setText('Num\nLock')
                     elif mod == d.CAPS_LOCK:
@@ -299,21 +299,21 @@ class KeyboardView(QGraphicsView):
                         
                 elif len(char) > 1:
                     if char == 'BackSpace':
-                        key.setIcon('arrows', 'backspace', 'backspace')
+                        key.setIcon('backspace', 'backspace')
                     elif char in ('Tab', 'ISO_Left_Tab'):
-                        key.setIcon('arrows', 'tab', 'Tabulation')
+                        key.setIcon('tab', 'Tabulation')
                     elif char in ('Up', 'KP_Up'):
-                        key.setIcon('arrows', 'arrow-up2', 'Up')
+                        key.setIcon('arrow-up', 'Up')
                     elif char in ('Left', 'KP_Left'):
-                        key.setIcon('arrows', 'arrow-left2', 'Left')
+                        key.setIcon('arrow-left', 'Left')
                     elif char in ('Right', 'KP_Right'):
-                        key.setIcon('arrows', 'arrow-right2', 'Right')
+                        key.setIcon('arrow-right', 'Right')
                     elif char in ('Down', 'KP_Down'):
-                        key.setIcon('arrows', 'arrow-down2', 'Down')
+                        key.setIcon('arrow-down', 'Down')
                     elif char in ('Return', 'KP_Enter'):
-                        key.setIcon('arrows', 'arrow-return', 'Return')
+                        key.setIcon('arrow-return', 'Return')
                     elif char in 'Menu':
-                        key.setIcon('miscellaneous', 'dropmenu', 'Return')
+                        key.setIcon('dropmenu', 'Menu')
                     elif char == 'KP_Divide':
                         key.setText('/')
                     elif char == 'KP_Multiply':
