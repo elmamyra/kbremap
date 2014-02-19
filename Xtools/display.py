@@ -5,9 +5,7 @@ from keysymdef import *
 
 from keysData import keyGroups
 
-keypadCode = [63, 77, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 104, 106, 108]
 
-print "1".isupper()
 
 class Display:
     CAPS_LOCK_DEFAULT, CAPS_LOCK_OLD = 0, 1
@@ -25,7 +23,6 @@ class Display:
         return self._xdisplay.keycode_to_keysym(keycode, index)
     
     def keycode2char(self, keycode, index):
-#        index = self.findIndex(shift, altGr, capsLock, numLock)            
         keysym = self.keycode2keysym(keycode, index)
         return self.keysym2char(keysym, index)
     
@@ -41,7 +38,7 @@ class Display:
         return ''
     
     def keycode2keysyms(self, keycode):
-        return self._xdisplay. get_keyboard_mapping(keycode, 1)
+        return self._xdisplay.get_keyboard_mapping(keycode, 1)
     
     def keysym2keycodes(self, keysym):
         return self._xdisplay.keysym_to_keycodes(keysym)
@@ -67,7 +64,7 @@ class Display:
         groupStart = 4 if altGr else 0
         if not self.keycode2keysym(keycode, 1):
             return self.keycode2char(keycode, 0)
-        elif numLock and 0xFF80 <= self.keycode2keysym(keycode, groupStart + 1) <= 0xFFBD:
+        elif numLock and self.isKeypadKeycode(keycode, groupStart + 1):
             if (shift and capsLock) or (shift and not capsLock):
                 groupId = 0
             elif (not shift and capsLock) or (not shift and not capsLock):
@@ -112,6 +109,11 @@ class Display:
         return char 
     
     
+    def isKeypadKeycode(self, keycode, index):
+        keysym = self.keycode2keysym(keycode, index)
+        return 0xFF80 <= keysym <= 0xFFBD \
+                or 0x11000000 <= keysym <= 0x1100FFFF
+    
     def _tryFindChar(self, keysym):
         hexa = hex(keysym)
         if hexa[-1] == 'L':
@@ -137,7 +139,7 @@ class Display:
         self._groups = []
         self._char2keysym = {}
         self._name2char = {}
-        for groupName, value in keyGroups.items():
+        for groupName in keyGroups:
             if groupName in exceptGroup:
                 continue
             self.addGroup(groupName)
