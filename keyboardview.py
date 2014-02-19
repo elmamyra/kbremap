@@ -108,9 +108,9 @@ class KeyBase(object):
         self.content.setPos(self.getCenter(self.content.boundingRect()))
         self.setToolTip('')
         
-    def setIcon(self, name, tooltip='', sizeCoef = 0.5):
+    def setIcon(self, iconName, tooltip='', sizeCoef = 0.5):
         self.clear()
-        icon = icons.get(name)
+        icon = icons.get(iconName)
         size = int(self.view().keySize()*sizeCoef)
         pix = icon.pixmap(size, size)
         self.content = QGraphicsPixmapItem(pix, self)
@@ -276,24 +276,16 @@ class KeyboardView(QGraphicsView):
                     continue
                  
                 if key.isModifier():
-                    mod = key.modifier()
-                    if mod == d.ALT:
-                        key.setText('Alt')
-                    elif mod == d.CTRL:
-                        key.setText('Ctrl')
-                    elif mod == d.SHIFT:
-                        key.setIcon('arrow-shift')
-                    elif mod == d.SUPER:
-                        key.setIcon('linux', 'Super')
-                    elif mod == d.NUM_LOCK:
-                        key.setText('Num\nLock')
-                    elif mod == d.CAPS_LOCK:
-                        key.setText('Caps\nLock')
-                    elif mod == d.ALT_GR:
-                        key.setText('Art Gr')
-                    
-                    
-                        
+                    meth, val = {
+                        d.ALT: (key.setText, 'Alt'),
+                        d.CTRL: (key.setText, 'Ctrl'),
+                        d.SHIFT: (key.setIcon, 'arrow-shift'),
+                        d.SUPER: (key.setIcon, 'linux'),
+                        d.NUM_LOCK: (key.setText, 'Num\nLock'),
+                        d.CAPS_LOCK: (key.setText, 'Caps\nLock'),
+                        d.ALT_GR: (key.setText, 'Art Gr'),
+                    }[key.modifier()]
+                    meth(val)
                         
                 elif len(char) > 1:
                     if char == 'BackSpace':
@@ -352,7 +344,6 @@ class KeyboardView(QGraphicsView):
                 
                 if key.isModifier():
                     key.setColor("modifier-on" if self._modifierStates[key.modifier()] else "modifier-off")
-#                     key.setColor('modifier-off')
                 elif not char:
                     key.setColor('no-char')
                     
@@ -380,18 +371,25 @@ class KeyboardView(QGraphicsView):
         if self.isVisible():
             self.updateSize()
             self.loadLayout()
-        
+    
     def keys(self):
         return self._keys
     
     def keySize(self):
         return self._keySize
+    
+    def modifier2hexa(self):
+        modState = 0
+        for modId, modMask in d.MODIFIER_MASK:
+            if self._modifierStates[modId]:
+                modState |= modMask
+        return modState
 
-    def findKeyByChar(self, char):
-        for k in self._keys:
-            if k.char() and k.char() == char:
-                return k
-        return None
+#     def findKeyByChar(self, char):
+#         for k in self._keys:
+#             if k.char() and k.char() == char:
+#                 return k
+#         return None
     
     def resizeEvent(self, event):
         if not self.model:
