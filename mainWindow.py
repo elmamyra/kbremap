@@ -8,7 +8,7 @@ from keyboardview import KeyboardView
 from mapping import Mapping
 import icons
 import dialogEditor
-import icons
+import os
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -64,7 +64,7 @@ class MainWindow(QMainWindow):
     
     def initUI(self):
         self.setWindowTitle('Speedy keyboard')
-        self.setWindowIcon(QIcon('speedy-keyboard.svg'))
+        self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), 'speedy-keyboard.svg')))
         centralWidget = QWidget(self)
         layout = QVBoxLayout(centralWidget)
         self.keyboardEditor = KeyboardView(centralWidget)
