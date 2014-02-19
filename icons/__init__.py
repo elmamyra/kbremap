@@ -7,7 +7,7 @@ import os.path
 #     return QIcon(path)
     
 def get(name):
-    if QIcon.hasThemeIcon(name):
-        return QIcon.fromTheme(name)
-    else:
+#     if QIcon.hasThemeIcon(name):
+#         return QIcon.fromTheme(name)
+#     else:
         return QIcon(os.path.join(__path__[0], "{}.svg".format(name)))
