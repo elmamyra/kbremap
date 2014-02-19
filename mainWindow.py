@@ -64,7 +64,7 @@ class MainWindow(QMainWindow):
     
     def initUI(self):
         self.setWindowTitle('Speedy keyboard')
-        self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), 'speedy-keyboard.svg')))
+        self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), 'speedy-keyboard.svg').decode('utf-8')))
         centralWidget = QWidget(self)
         layout = QVBoxLayout(centralWidget)
         self.keyboardEditor = KeyboardView(centralWidget)
