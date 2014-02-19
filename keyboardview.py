@@ -27,7 +27,7 @@ from PySide.QtCore import *
 from PySide.QtGui import *
 #from . import util
 #from . import data
-from Xtools import display
+from Xtools.display import Display
 import keyboardmodel
 import util
 import data as d
@@ -204,7 +204,7 @@ class KeyboardView(QGraphicsView):
         self.setBackgroundBrush(util.keyboardColors('bg'))
         self.setMinimumSize(400, 180)
         self.setScene(QGraphicsScene(self))
-        self.display = display.Display()
+        self.display = Display()
         self._keys = []
         self._modifierKeys = []
         self._space = 4.0
@@ -214,9 +214,7 @@ class KeyboardView(QGraphicsView):
         for mod in d.ALT, d.CTRL, d.SHIFT, d.SUPER, d.NUM_LOCK, d.CAPS_LOCK, d.ALT_GR:
             self._modifierStates[mod] = False
         self._modifierStates[d.NUM_LOCK] = True
-#         self.loadLayout()
         self.modifierPressed.connect(self.slotModifierPressed)
-        self.resized.connect(self.loadLayout)
     
     def drawKey(self):
         self.scene().clear()
@@ -388,20 +386,17 @@ class KeyboardView(QGraphicsView):
     
     def keySize(self):
         return self._keySize
-    
-    def resizeEvent(self, event):
-        if self.model:
-            self.updateSize(event.size())
-            self.resized.emit()
-        QGraphicsView.resizeEvent(self, event)
-        
+
     def findKeyByChar(self, char):
         for k in self._keys:
             if k.char() and k.char() == char:
                 return k
         return None
     
-    def updateSize(self, size=None):
+    def resizeEvent(self, event):
+        if not self.model:
+            return
+        size = event.size()
         if size is None:
             size = self.viewport().size()
         w = size.width()
@@ -414,4 +409,5 @@ class KeyboardView(QGraphicsView):
         hScene= self.vNumKey*(self._keySize+self._space) - self._space
         self.scene().setSceneRect(0, 0, wScene, hScene)
         self.drawKey()
+        self.loadLayout()
         
