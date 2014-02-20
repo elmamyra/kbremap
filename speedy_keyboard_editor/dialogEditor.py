@@ -53,18 +53,11 @@ class DialogEditor(QDialog):
         self.setLayout(layout)
         
         
-        dataMenu = {
-            d.TEXT: (self.tr("Text"), 'text'),
-            d.LAUNCHER: (self.tr("Launcher"), 'launcher'),
-            d.SHORTCUT: (self.tr("Shortcut"), 'shortcuts'),
-            
-            }
-        
         menuList = (d.TEXT, d.LAUNCHER, d.SHORTCUT)
         #fill the menu
         menu = QMenu(self.typeButton)
         for typ in menuList:
-            title, iconName = dataMenu[typ]
+            title, iconName = d.DATA_TYPE[typ]
             menu.addAction(icons.get(iconName), title).setData(typ)
             
         self.typeButton.setMenu(menu)
