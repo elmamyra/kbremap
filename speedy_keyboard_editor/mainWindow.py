@@ -19,7 +19,14 @@ class MainWindow(QMainWindow):
         self.ctrl = self.alt = self.super = False
         self.readSettings()
         self.setMenu()
-        self.initUI()
+        self.setWindowTitle('Speedy keyboard')
+        QApplication.setWindowIcon(icons.get('speedy-keyboard'))
+        centralWidget = QWidget(self)
+        layout = QVBoxLayout(centralWidget)
+        self.keyboardEditor = KeyboardView(centralWidget)
+        self.keyboardEditor.setModel(self.keyboardModel)
+        layout.addWidget(self.keyboardEditor)
+        self.setCentralWidget(centralWidget)
         self.shift = True
         self.show()
     
@@ -89,22 +96,12 @@ class MainWindow(QMainWindow):
         
         self.setMenuBar(menu)
     
-    def findItem(self, keycode, modId):
-        return None
+#     def findItem(self, keycode, modId):
+#         return None
     
     
-    def initUI(self):
-        self.setWindowTitle('Speedy keyboard')
-        QApplication.setWindowIcon(icons.get('speedy-keyboard'))
-#         self.setWindowIcon(icons.get('speedy-keyboard'))
-        centralWidget = QWidget(self)
-        layout = QVBoxLayout(centralWidget)
-        self.keyboardEditor = KeyboardView(centralWidget)
-        self.keyboardEditor.setModel(self.keyboardModel)
-        layout.addWidget(self.keyboardEditor)
-        self.setCentralWidget(centralWidget)
         
-#         self.keyboardEditor.keyDoubleClicked.connect(self.slotEditKey)
+        
         
     def slotKeyboardModel(self, act):
         self.keyboardEditor.setModel(act.data())
