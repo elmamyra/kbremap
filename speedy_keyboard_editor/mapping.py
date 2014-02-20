@@ -102,8 +102,8 @@ class Mapping:
         root = self.loadTree().getroot()
         mappingElt = root.find("mapping[@name='{}']".format(name))
         if mappingElt is not None:
-            self.name = name
-            self.title = mappingElt.get('title')
+            self._name = name
+            self._title = mappingElt.get('title')
             self._mappingItems = {}
             for itemElt in mappingElt:
                 item = MappingItem.fromXml(itemElt)
@@ -115,7 +115,7 @@ class Mapping:
         if self._name:
             tree = self.loadTree()
             root = tree.getroot()
-            oldMapping = root.find("mapping[@name='n487481']")
+            oldMapping = root.find("mapping[@name='{}']".format(self._name))
             if oldMapping is not None:
                 root.remove(oldMapping)
             root.append(self.toXml())
@@ -196,11 +196,11 @@ def _getAll(attr):
         return []
     return []
 
-def getAllNames(self):
-    _getAll('name')
+def getAllNames():
+    return _getAll('name')
 
-def getAllTitles(self):
-    _getAll('title')
+def getAllTitles():
+    return _getAll('title')
 
 def getUniqueName():
     names = getAllNames()
