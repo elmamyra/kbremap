@@ -1,5 +1,7 @@
 from PySide.QtGui import QColor
+from PySide.QtCore import  QObject
 from Xlib import X
+from collections import namedtuple
 
 ALT, CTRL, SHIFT, SUPER, NUM_LOCK, CAPS_LOCK, ALT_GR = range(7)
 
@@ -31,7 +33,14 @@ MODIFIER_KEYCODES = {
 }
 
 
+t = namedtuple('t', 'title icon')
 
+DATA_TYPE = {
+            TEXT: t(QObject().tr("Text"), 'text'),
+            LAUNCHER: t(QObject().tr("Launcher"), 'launcher'),
+            SHORTCUT: t(QObject().tr("Shortcut"), 'shortcuts'),
+            
+            }
 
 KEYBOARD_COLOR = {
     'border': QColor(128, 128, 128),
