@@ -23,14 +23,14 @@ Information about the Speedy keyboard application.
 """
 
 
-name = "speedy-entry"
+name = "speedy-keyboard"
 version = "0.1"
 description = "X11 keyboard editor"
 long_description = "TODO"
-maintainer_email = ""
+maintainer_email = "elmamyra@gmail.com"
 domain = ""
 url = ""
-license = ""
+license = "GPL"
 
 # this one is used everywhere in the application
 appname = "Speedy keyboard"
