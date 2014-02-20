@@ -29,6 +29,7 @@ from PySide.QtGui import *
 #from . import data
 from Xtools.display import Display
 import keyboardmodel
+import dialogEditor
 import util
 import data as d
 import icons
@@ -221,6 +222,8 @@ class KeyboardView(QGraphicsView):
         for mod in d.ALT, d.CTRL, d.SHIFT, d.SUPER, d.NUM_LOCK, d.CAPS_LOCK, d.ALT_GR:
             self._modifierStates[mod] = False
         self._modifierStates[d.NUM_LOCK] = True
+        
+        self.keyDoubleClicked.connect(self.slotEditKey)
         self.modifierPressed.connect(self.slotModifierPressed)
     
     def drawKey(self):
@@ -367,6 +370,11 @@ class KeyboardView(QGraphicsView):
                 k.setColor("modifier-on" if self._modifierStates[mod] else "modifier-off")
         
         self.loadLayout()
+    
+    def slotEditKey(self, key):
+        if not key.isModifier():
+            dlg = dialogEditor.DialogEditor(self)
+            dlg.exec_()
     
     def usefulModifier(self):
         li = (d.SHIFT, d.NUM_LOCK, d.CAPS_LOCK, d.ALT_GR)

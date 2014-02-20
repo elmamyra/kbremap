@@ -3,9 +3,8 @@
 from PySide.QtGui import QApplication
 from PySide.QtCore import QCoreApplication, QLocale, QLibraryInfo, QTranslator
 
-from mainWindow import MainWindow
+from speedy_keyboard_editor import mainWindow, info
 import sys
-import info
 
 app = QApplication(sys.argv)
 locale = QLocale.system().name()
@@ -17,7 +16,7 @@ QApplication.setApplicationName(info.name)
 QApplication.setApplicationVersion(info.version)
 QApplication.setOrganizationName(info.name)
 QApplication.setOrganizationDomain(info.domain)
-win = MainWindow()
+win = mainWindow.MainWindow()
 sys.exit(app.exec_())
 
 
