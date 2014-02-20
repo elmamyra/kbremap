@@ -40,6 +40,7 @@ class KeyBase(object):
         self._keycode = keycode
         self.content = None
         self._rect = QRectF()
+        self._color = QColor()
         self._mItem = None
         self._isUsed = True
         self._modifier = -1
@@ -80,12 +81,12 @@ class KeyBase(object):
     def select(self):
         self.setBrush(util.keyboardColors('select'))
         
-    def hover(self):
-        clr = self._color.rgb() + 0x0E0E0E
-        self.setBrush(QColor(clr))
-        
-    def restoreColor(self):
-        self.setBrush(self._color)
+#     def hover(self):
+#         clr = self._color.rgb() + 0x0E0E0E
+#         self.setBrush(QColor(clr))
+#         
+#     def restoreColor(self):
+#         self.setBrush(self._color)
     
     def setSize(self, w, h):
         self._rect.setRect(0, 0, w, h)
@@ -127,22 +128,28 @@ class KeyBase(object):
             event.ignore()
         
     def mouseDoubleClickEvent(self, event):
-        if event.buttons() == Qt.LeftButton:
-            self.view().keyDoubleClicked.emit(self)
-        else:
-            event.ignore()
+        if self.isUsed():
+            if event.buttons() == Qt.LeftButton:
+                self.view().keyDoubleClicked.emit(self)
+            else:
+                event.ignore()
   
     def mouseReleaseEvent(self, event):
         self.view().keyReleased.emit(event.scenePos())
         
-    def mouseMoveEvent(self, event):
-        self.view().keyMove.emit(event.scenePos())
+#     def mouseMoveEvent(self, event):
+#         self.view().keyMove.emit(event.scenePos())
     
     def hoverEnterEvent(self, event):
-        self.view().keyHover.emit(self)
+        if self.isUsed():
+            clr = self._color.rgb() + 0x0E0E0E
+            self.setBrush(QColor(clr))
+#         self.view().keyHover.emit(self)
         
     def hoverLeaveEvent(self, event):
-        self.view().keyLeave.emit(self)
+        if self.isUsed():
+            self.setBrush(self._color)
+#         self.view().keyLeave.emit(self)
     
     def view(self):
         return self.scene().views()[0]
@@ -192,10 +199,10 @@ class KeyboardView(QGraphicsView):
     keyReleased = Signal(QPointF)
     modifierPressed = Signal(int)
     keyDoubleClicked = Signal(Key)
-    keyContext = Signal(Key, QPoint)
-    keyMove = Signal(QPointF)
-    keyHover = Signal(Key)
-    keyLeave = Signal(Key)
+#     keyContext = Signal(Key, QPoint)
+#     keyMove = Signal(QPointF)
+#     keyHover = Signal(Key)
+#     keyLeave = Signal(Key)
     resized = Signal()
     def __init__(self, parent=None):
         super(KeyboardView, self).__init__(parent)
@@ -391,10 +398,10 @@ class KeyboardView(QGraphicsView):
 #                 return k
 #         return None
     
-    def resizeEvent(self, event):
+    def updateSize(self):
         if not self.model:
             return
-        size = event.size()
+        size = self.viewport().size()
         if size is None:
             size = self.viewport().size()
         w = size.width()
@@ -408,4 +415,7 @@ class KeyboardView(QGraphicsView):
         self.scene().setSceneRect(0, 0, wScene, hScene)
         self.drawKey()
         self.loadLayout()
+    
+    def resizeEvent(self, event):
+        self.updateSize()
         
