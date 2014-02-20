@@ -64,7 +64,7 @@ class Display:
         groupStart = 4 if altGr else 0
         if not self.keycode2keysym(keycode, 1):
             return self.keycode2char(keycode, 0)
-        elif numLock and self.isKeypadKeycode(keycode, groupStart + 1):
+        elif numLock and self.isKeypadKeycode(keycode, groupStart+1):
             if (shift and capsLock) or (shift and not capsLock):
                 groupId = 0
             elif (not shift and capsLock) or (not shift and not capsLock):
@@ -113,6 +113,10 @@ class Display:
         keysym = self.keycode2keysym(keycode, index)
         return 0xFF80 <= keysym <= 0xFFBD \
                 or 0x11000000 <= keysym <= 0x1100FFFF
+    
+    
+    def isKeypadKey(self, keycode):
+        return keycode in (106, 163, 79, 80, 81, 83, 84, 85, 87, 88, 89,  90, 91, 82, 86, 104)
     
     def _tryFindChar(self, keysym):
         hexa = hex(keysym)
