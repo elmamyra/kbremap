@@ -1,6 +1,8 @@
 from PySide.QtGui import QColor, QFrame
 from PyQt4.QtCore import  QSettings, QSize, Qt
 import data as d
+import info
+import os
 import weakref
 
 
@@ -56,5 +58,8 @@ def keycodeMod(keycode):
 def keyboardColors(name):
     return d.KEYBOARD_COLOR.get(name, QColor())
 
+def configPath():
+        configDir = os.environ.get('XDG_CONFIG_HOME') or os.path.expanduser("~/.config")
+        return os.path.join(configDir, info.name, 'mappings.xml')
 
 
