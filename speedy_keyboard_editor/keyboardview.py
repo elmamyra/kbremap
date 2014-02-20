@@ -21,13 +21,13 @@
 Base class of graphic keyboard.
 """
 
-from __future__ import unicode_literals
 
 from PySide.QtCore import *
 from PySide.QtGui import *
 #from . import util
 #from . import data
 from Xtools.display import Display
+from mapping import MappingItem
 import keyboardmodel
 import dialogEditor
 import util
@@ -36,18 +36,24 @@ import icons
 import time
 
 
-class KeyBase(object):
-    def __init__(self, keycode):
+class KeyBase(QGraphicsRectItem):
+    def __init__(self, scene, keycode):
+        QGraphicsRectItem.__init__(self, scene=scene)
+        self.setAcceptHoverEvents(True)
+        self.keyRound = 4
         self._keycode = keycode
         self.content = None
-        self._rect = QRectF()
+#         self._rect = QRectF()
         self._color = QColor()
         self._mItem = None
         self._isUsed = True
+        self._isKeypadKey = False
         self._modifier = -1
         self.font = QFont()
-        self.pen = QPen(util.keyboardColors('border'))
-        self.pen.setWidth(2)
+        pen = QPen(util.keyboardColors('border'))
+        pen.setWidth(2)
+        self.setPen(pen)
+        self.tr = QObject().tr
         
     def keycode(self):
         return self._keycode
@@ -66,9 +72,16 @@ class KeyBase(object):
     
     def setIsUsed(self, val):
         self._isUsed = val
+        val and self.setColor('not-used')
         
     def isUsed(self):
         return self._isUsed
+    
+    def setIsKeypadKey(self, val):
+        self._isKeypadKey = val
+        
+    def isKeypadKey(self):
+        return self._isKeypadKey
     
     def clear(self):
         if self.content:
@@ -79,6 +92,18 @@ class KeyBase(object):
         self._color = util.keyboardColors(colorName)
         self.setBrush(self._color)
         
+    def setMItemTooltip(self):
+        if self._mItem:
+            t = self._mItem.type
+            data = self._mItem.data
+            name = d.DATA_TYPE[t].title
+            val = ''
+            if t == d.TEXT:
+                val = '{}<br/>use {}'.format(data[0], self.tr('clipboard') if data[1] else self.tr('system'))
+                
+            tooltip = u'<b>{}</b><br/>{}'.format(name, val)
+            self.setToolTip(tooltip)
+    
     def select(self):
         self.setBrush(util.keyboardColors('select'))
         
@@ -90,18 +115,19 @@ class KeyBase(object):
 #         self.setBrush(self._color)
     
     def setSize(self, w, h):
-        self._rect.setRect(0, 0, w, h)
+#         self._rect.setRect(0, 0, w, h)
+        self.setRect(0, 0, w, h)
     
     def getCenter(self, rect):
-        x = (self._rect.width() - rect.width()) / 2
-        y = (self._rect.height() - rect.height()) / 2
+        x = (self.rect().width() - rect.width()) / 2
+        y = (self.rect().height() - rect.height()) / 2
         return QPointF(x, y)
     
     def setText(self, text):
         size = int(self.view().keySize()/2)
         if len(text) > 1:
             size = int(self.view().keySize()/4)
-        self._mItem = None
+#         self._mItem = None
         self.clear()
             
         self.content = QGraphicsTextItem(text, self)
@@ -110,14 +136,23 @@ class KeyBase(object):
         self.content.setPos(self.getCenter(self.content.boundingRect()))
         self.setToolTip('')
         
-    def setIcon(self, iconName, tooltip='', sizeCoef = 0.5):
+    def setIcon(self, iconName, tooltip='', sizeCoef = 0.5, isPath=False):
         self.clear()
-        icon = icons.get(iconName)
+        icon = QIcon(iconName) if isPath else icons.get(iconName) 
         size = int(self.view().keySize()*sizeCoef)
         pix = icon.pixmap(size, size)
         self.content = QGraphicsPixmapItem(pix, self)
         self.content.setPos(self.getCenter(self.content.boundingRect()))
         self.setToolTip(tooltip)
+    
+    def setMappingItem(self, mItem):
+        self._mItem = mItem
+        val = mItem.displayValue
+        if mItem.displayType == d.GR_TEXT:
+            pass
+        self.setText(val) if mItem.displayType == d.GR_TEXT else self.setIcon(val, isPath=True) #@NoEffect
+        self.setColor('content')
+        self.setMItemTooltip()
     
     def mousePressEvent(self, event):
         if event.buttons() == Qt.LeftButton:
@@ -134,12 +169,20 @@ class KeyBase(object):
                 self.view().keyDoubleClicked.emit(self)
             else:
                 event.ignore()
+        else:
+            event.ignore()
   
     def mouseReleaseEvent(self, event):
-        self.view().keyReleased.emit(event.scenePos())
+        if self.isUsed() and event.buttons() == Qt.LeftButton:
+            self.view().keyReleased.emit(event.scenePos())
+        else:
+            event.ignore()
         
-#     def mouseMoveEvent(self, event):
-#         self.view().keyMove.emit(event.scenePos())
+    def mouseMoveEvent(self, event):
+        if self.isUsed():
+            self.view().keyMove.emit(event.scenePos())
+        else:
+            event.ignore()
     
     def hoverEnterEvent(self, event):
         if self.isUsed():
@@ -158,31 +201,30 @@ class KeyBase(object):
     def contextMenuEvent(self, event):
         self.view().keyContext.emit(self, event.screenPos())
     
-class Key(KeyBase, QGraphicsRectItem):
+class Key(KeyBase):
     def __init__(self, scene, keycode):
-        KeyBase.__init__(self, keycode)
-        QGraphicsRectItem.__init__(self, scene=scene)
-        self.setAcceptHoverEvents(True)
-        self.setPen(self.pen)
+        KeyBase.__init__(self, scene, keycode)
     
-    def setSize(self, w, h):
-        self._rect.setRect(0, 0, w, h)
-        self.setRect(0, 0, w, h)
-        
     def paint(self, painter, opt, widget):
         painter.setBrush(self.brush())
-        painter.drawRoundedRect(self._rect, 4, 4)
+        painter.drawRoundedRect(self.rect(), self.keyRound, self.keyRound)
        
         
 
-class ReturnKey(KeyBase, QGraphicsPathItem):
-    def __init__(self, scene, keycode, w1, w2, space, size):
-        KeyBase.__init__(self, keycode)
-        QGraphicsPathItem.__init__(self, scene=scene)
-        self.setPen(self.pen)
+class ReturnKey(KeyBase):
+    def __init__(self, scene, keycode):
+        KeyBase.__init__(self, scene, keycode)
+        self.infoSize = None
+    
+    def setInfoSize(self, *infoSize):
+        self.infoSize = infoSize
+    
+    def paint(self, painter, opt, widget):
+        painter.setBrush(self.brush())
+        w1, w2, space, size = self.infoSize
         path = QPainterPath()
-        
-        round_ = 8
+
+        round_ = self.keyRound * 2
         path.moveTo(round_/2, 0)
         path.arcTo(w1 - round_, 0, round_, round_, 90, -90)
         path.arcTo(w1-round_, size*2+space-round_, round_, round_, 0, -90)
@@ -190,7 +232,7 @@ class ReturnKey(KeyBase, QGraphicsPathItem):
         path.arcTo(w1-w2-round_, size, round_, round_, 0, 90)
         path.arcTo(0, size-round_, round_, round_, -90, -90)
         path.arcTo(0, 0, round_, round_, 180, -90)
-        self.setPath(path)
+        painter.drawPath(path)
 
         
 
@@ -200,13 +242,15 @@ class KeyboardView(QGraphicsView):
     keyReleased = Signal(QPointF)
     modifierPressed = Signal(int)
     keyDoubleClicked = Signal(Key)
+    keyModified = Signal()
 #     keyContext = Signal(Key, QPoint)
-#     keyMove = Signal(QPointF)
+    keyMove = Signal(QPointF)
 #     keyHover = Signal(Key)
 #     keyLeave = Signal(Key)
     resized = Signal()
-    def __init__(self, parent=None):
+    def __init__(self, parent, mainWindow):
         super(KeyboardView, self).__init__(parent)
+        self.mainWindow = mainWindow
         self.setRenderHint(QPainter.Antialiasing)
         self.setRenderHint(QPainter.TextAntialiasing)
         self.setBackgroundBrush(util.keyboardColors('bg'))
@@ -219,12 +263,16 @@ class KeyboardView(QGraphicsView):
         self._keySize = 40.0
         self.model = ()
         self._modifierStates = {}
+        self.currentPressed = None
         for mod in d.ALT, d.CTRL, d.SHIFT, d.SUPER, d.NUM_LOCK, d.CAPS_LOCK, d.ALT_GR:
             self._modifierStates[mod] = False
         self._modifierStates[d.NUM_LOCK] = True
         
         self.keyDoubleClicked.connect(self.slotEditKey)
         self.modifierPressed.connect(self.slotModifierPressed)
+#         self.keyPressed.connect(self.slotKeyPressed)
+        self.keyReleased.connect(self.slotKeyReleased)
+        self.keyMove.connect(self.slotKeyMove)
     
     def drawKey(self):
         self.scene().clear()
@@ -245,7 +293,9 @@ class KeyboardView(QGraphicsView):
                     continue
                 
                 if info == km.RETURN:
-                    key = ReturnKey(self.scene(), keycode, w, h, sp, si)
+                    key = ReturnKey(self.scene(), keycode)
+                    w2 = si*5.0/4 + sp*(5.0/4-1)
+                    key.setInfoSize(w, w2, sp, si)
                     self._keys.append(key)
                 else:
                     key = Key(self.scene(), keycode)
@@ -255,6 +305,9 @@ class KeyboardView(QGraphicsView):
                 if mod != -1:
                     key.setModifier(mod)
                     self._modifierKeys.append(key)
+                    
+                if self.display.isKeypadKey(keycode):
+                    key.setIsKeypadKey(True)
                 
                 if info == km.EMPTY:
                     key.setIsUsed(False)
@@ -262,15 +315,18 @@ class KeyboardView(QGraphicsView):
                 addY = coef[2]*si+1 if len(coef) == 3 else 0
                 key.setPos(x, y+addY)
                 x += w + sp
+#                 key.keyDoubleClicked.connect(self.slotEditKey)
+#                 key.modifierPressed.connect(self.slotModifierPressed)
             y += si + sp
             x = 0
     
     def loadLayout(self):
         for key in self.keys():
             char = self.display.charFromModifier(key.keycode(), *self.usefulModifier())
-            item = 0#self.findItem(key.keycode(), self.currentMod())
+            item = self.mapping()[(key.keycode(), self.modifier2hexa(key.isKeypadKey()))]
+            
             if item:
-                key.setMapItem(item, self.speedyentry)
+                key.setMappingItem(item)
             else:
                 if not char:
                     firstChar = self.display.charFromModifier(key.keycode())
@@ -281,9 +337,9 @@ class KeyboardView(QGraphicsView):
                     else:
                         key.clear()
                 
-                if not key.isUsed():
-                    key.setColor('not-used')
-                    continue
+#                 if not key.isUsed():
+#                     key.setColor('not-used')
+#                     continue
                  
                 if key.isModifier():
                     meth, val = {
@@ -362,6 +418,8 @@ class KeyboardView(QGraphicsView):
                 else:
                     key.setColor('default')
     
+    def mapping(self):
+        return self.mainWindow.mapping()
     
     def slotModifierPressed(self, mod):
         self._modifierStates[mod] = not self._modifierStates[mod]
@@ -374,7 +432,24 @@ class KeyboardView(QGraphicsView):
     def slotEditKey(self, key):
         if not key.isModifier():
             dlg = dialogEditor.DialogEditor(self)
-            dlg.exec_()
+            if dlg.exec_():
+                print 'key', key.isKeypadKey()
+                item = MappingItem(key.keycode(), self.modifier2hexa(key.isKeypadKey()), *dlg.getData())
+                self.mapping().addItem(item)
+                key.setMappingItem(item)
+                self.keyModified.emit()
+    
+    def slotKeyMove(self, pos):
+        key = self.keyAt(pos)
+        if self.currentPressed:
+            pass
+        
+#     def slotKeyPressed(self, pos):
+#         print pos
+        
+    def slotKeyReleased(self, pos):
+        print pos
+        
     
     def usefulModifier(self):
         li = (d.SHIFT, d.NUM_LOCK, d.CAPS_LOCK, d.ALT_GR)
@@ -393,11 +468,15 @@ class KeyboardView(QGraphicsView):
     def keySize(self):
         return self._keySize
     
-    def modifier2hexa(self):
+    def modifier2hexa(self, includeNumLock=False):
         modState = 0
-        for modId, modMask in d.MODIFIER_MASK:
+        for modId, modMask in d.MODIFIER_MASK.items():
             if self._modifierStates[modId]:
-                modState |= modMask
+                if modId == d.NUM_LOCK:
+                    if includeNumLock:
+                        modState |= modMask
+                else:
+                    modState |= modMask
         return modState
 
 #     def findKeyByChar(self, char):
