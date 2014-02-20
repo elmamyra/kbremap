@@ -79,6 +79,19 @@ class Mapping:
         if name:
             self.load(name)
     
+    def name(self):
+        return self._name
+    
+    def title(self):
+        return self._title
+    
+    def setName(self, name):
+        self._name = name
+        
+    def setTitle(self, title):
+        self._title = title
+        
+    
     def addItem(self, item):
         self._mappingItems[(item.keycode, item.modifiers)] = item
         
@@ -112,16 +125,6 @@ class Mapping:
     def isValid(self):
         return bool(self._name) and bool(self._title)
     
-    @staticmethod    
-    def getAllNames():
-        configPath = util.configPath()
-        try:
-            root = ET.parse(configPath).getroot()
-            return [elt.attrib['name'] for elt in root]
-        except:
-            return []
-        return []
-    
     
     def loadTree(self):
         configPath = util.configPath()
@@ -152,6 +155,8 @@ class Mapping:
         self._name = getUniqueName()
         self._title = title
     
+    def __getitem__(self, key):
+        return self._mappingItems.get(key)
     
     def __iter__(self):
         for item in self._mappingItems.values():
@@ -182,10 +187,37 @@ def indent(elem, indent_string="    ", level=0):
         if level and isblank(elem.tail):
             elem.tail = i
 
+def _getAll(attr):
+    configPath = util.configPath()
+    try:
+        root = ET.parse(configPath).getroot()
+        return [elt.attrib[attr] for elt in root]
+    except:
+        return []
+    return []
+
+def getAllNames(self):
+    _getAll('name')
+
+def getAllTitles(self):
+    _getAll('title')
+
 def getUniqueName():
-    names = Mapping.getAllNames()
+    names = getAllNames()
     while True:
         u = "n{0:06.0f}".format(random.random()*1000000)
         if u not in names:
             break
     return u
+
+def getUniqueTile(title):
+    titles = getAllTitles()
+    newTitle = title
+    i = 2
+    while newTitle in titles:
+        newTitle = "{}-{}".format(i)
+        i += 1
+        
+    return newTitle
+    
+    
