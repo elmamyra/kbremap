@@ -138,14 +138,27 @@ class KeyBase(QGraphicsRectItem):
         y = (self.rect().height() - rect.height()) / 2
         return QPointF(x, y)
     
-    def setText(self, text):
-        size = int(self.view().keySize()/2)
-        if len(text) > 1:
-            size = int(self.view().keySize()/4)
-        self.clear()
+    def setText(self, text, elided=False):
+        size = self.view().keySize()
+        if len(text) == 1:
+            fontSize = int(size/2)
+        elif len(text) == 2:
+            fontSize = int(size/2.5)
+        elif len(text) == 3:
+            fontSize = int(size/3)
+        else:
+            fontSize = int(size/4)
+            if elided:
+                metric = QFontMetrics(self.font)
+                text = metric.elidedText(text, Qt.ElideRight, size-2)
             
+            
+        self.clear()
+        
+        
         self.content = QGraphicsTextItem(text, self)
-        self.font.setPixelSize(size)
+        self.font.setPixelSize(fontSize)
+        
         self.content.setFont(self.font)
         self.content.setPos(self.getCenter(self.content.boundingRect()))
         self.setToolTip('')
@@ -163,7 +176,7 @@ class KeyBase(QGraphicsRectItem):
         self._mItem = mItem
         val = mItem.displayValue
         if mItem.displayType == d.GR_TEXT:
-            self.setText(val)
+            self.setText(val, True)
         else:
             self.setIcon(val, sizeCoef=0.8, isPath=True)
             
