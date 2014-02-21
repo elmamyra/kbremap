@@ -102,6 +102,7 @@ class KeyBase(QGraphicsRectItem):
                 val = '{}<br/>use {}'.format(data[0], self.tr('clipboard') if data[1] else self.tr('system'))
                 
             tooltip = u'<b>{}</b><br/>{}'.format(name, val)
+            
             self.setToolTip(tooltip)
     
     def pixmap(self):
@@ -168,15 +169,15 @@ class KeyBase(QGraphicsRectItem):
         self.content.setPos(self.getCenter(self.content.boundingRect()))
         self.setToolTip(tooltip)
     
-    def setMappingItem(self, mItem):
-        self._mItem = mItem
+    def setMitem(self, mItem):
         val = mItem.displayValue
         if mItem.displayType == d.GR_TEXT:
             self.setText(val, True)
         else:
             self.setIcon(val, sizeCoef=0.8, isPath=True)
-            
+        self._mItem = mItem
         self.setColor('content')
+        
         self.setMItemTooltip()
     
     def mousePressEvent(self, event):
@@ -268,8 +269,6 @@ class KeyboardView(QGraphicsView):
     keyModified = Signal()
 #     keyContext = Signal(Key, QPoint)
     keyMove = Signal(QPointF)
-#     keyHover = Signal(Key)
-#     keyLeave = Signal(Key)
     resized = Signal()
     def __init__(self, parent, mainWindow):
         super(KeyboardView, self).__init__(parent)
@@ -352,7 +351,7 @@ class KeyboardView(QGraphicsView):
         item = self.mapping()[(key.keycode(), self.modifier2hexa(key.isKeypadKey()))]
         
         if item:
-            key.setMappingItem(item)
+            key.setMitem(item)
         else:
             if not char:
                 firstChar = self.display.charFromModifier(key.keycode())
@@ -456,10 +455,8 @@ class KeyboardView(QGraphicsView):
             if dlg.exec_():
                 item = MappingItem(key.keycode(), self.modifier2hexa(key.isKeypadKey()), *dlg.getData())
                 self.mapping().addItem(item)
-                key.setMappingItem(item)
+                key.setMitem(item)
                 self.keyModified.emit()
-    
-    
     
     def slotKeyReleased(self, pos):
         key = self.keyAt(pos)
