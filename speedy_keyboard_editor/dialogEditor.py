@@ -19,6 +19,8 @@ class TextLineEdit(QLineEdit):
         
     def focusInEvent(self, event):
         self.focusIn.emit()
+        
+        QLineEdit.focusInEvent(self, event)
 
 
 class DialogEditor(QDialog):
