@@ -44,16 +44,16 @@ DATA_TYPE = {
 
 KEYBOARD_COLOR = {
     'border': QColor(128, 128, 128),
-    'default': QColor(240, 240, 220),
-    'content': QColor(230, 240, 240),
+    'default': QColor(240, 240, 230),
+    'content': QColor(210, 240, 215),
     'dead-key': QColor(220, 225, 210),
     'no-char': QColor(230, 225, 210),
     'not-used': QColor(200, 200, 200),
-    'modifier-on': QColor(235, 200, 210),
+    'modifier-on': QColor(190, 210, 230),
     'modifier-off': QColor(225, 235, 230),
     'bg': QColor(230, 235, 230),
     'unused': QColor(192, 192, 192),
-    'select': QColor(230, 200, 210)      
+    'select': QColor(240, 210, 220)      
 }
 
 
