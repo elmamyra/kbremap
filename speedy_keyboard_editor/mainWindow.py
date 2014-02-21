@@ -77,34 +77,38 @@ class MainWindow(QMainWindow):
         
         #mapping menu
         menuMapping = menu.addMenu(self.tr("&Mapping"))
-        a = act(self.tr("&New..."), self.slotNew, Qt.CTRL + Qt.Key_N, 'document-new')
-        menuMapping.addAction(a)
+        self.newAction = act(self.tr("&New..."), self.slotNew, Qt.CTRL + Qt.Key_N, 'document-new')
+        menuMapping.addAction(self.newAction)
         
         self.loadMenu = menuMapping.addMenu(self.tr("&Load"))
         self.fillLoadMenu()
 #         self.loadMenu.aboutToShow.connect(self.fillLoadMenu)
         
-        self.saveAction = a = act(self.tr("&Save..."), self.slotSave, Qt.CTRL + Qt.Key_S, 'document-save')
-        menuMapping.addAction(a)
+        self.saveAction = act(self.tr("&Save..."), self.slotSave, Qt.CTRL + Qt.Key_S, 'document-save')
+        menuMapping.addAction(self.saveAction)
         
-        a = act(self.tr("&Rename..."), self.slotRename, Qt.CTRL + Qt.Key_R, 'go-jump')
-        menuMapping.addAction(a)
+        self.renameAction = act(self.tr("&Rename..."), self.slotRename, Qt.CTRL + Qt.Key_R, 'go-jump')
+        menuMapping.addAction(self.renameAction)
         
-        a = act(self.tr("&Delete"), self.slotDelete, Qt.CTRL + Qt.Key_D, 'edit-delete')
-        menuMapping.addAction(a)
+        self.deleteAction = act(self.tr("&Delete"), self.slotDelete, Qt.CTRL + Qt.Key_D, 'edit-delete')
+        menuMapping.addAction(self.deleteAction)
         
         menuMapping.addSeparator()
         
-        a = act(self.tr("&Import..."), self.slotImport, Qt.CTRL + Qt.Key_I, 'folder-open')
-        menuMapping.addAction(a)
+        self.importAction = act(self.tr("&Import..."), self.slotImport, Qt.CTRL + Qt.Key_I, 'folder-open')
+        menuMapping.addAction(self.importAction)
         
-        a = act(self.tr("E&xport..."), self.slotExport, Qt.CTRL + Qt.Key_I, 'document-save-as')
-        menuMapping.addAction(a)
+        self.exportAction = act(self.tr("E&xport..."), self.slotExport, Qt.CTRL + Qt.Key_I, 'document-save-as')
+        menuMapping.addAction(self.exportAction)
         
         self.setMenuBar(menu)
+        self.enableAction()
+        self.saveAction.setDisabled(True)
     
-#     def findItem(self, keycode, modId):
-#         return None
+    def enableAction(self):
+        val = self._mapping.isValid()
+        for act in (self.renameAction, self.deleteAction, self.exportAction):
+            act.setEnabled(val)
     
     def updateTitle(self):
         mappingTitle = self._mapping.title() or self.tr("Untitled")
@@ -135,6 +139,7 @@ class MainWindow(QMainWindow):
     def slotModified(self):
         if not self._isModified:
             self._isModified = True
+            self.saveAction.setEnabled(True)
             self.updateTitle()
 
     def slotNew(self):
@@ -154,11 +159,13 @@ class MainWindow(QMainWindow):
             self._isModified = False
             self.updateTitle()
             self.keyboardEditor.loadLayout()
+            self.enableAction()
             self.fillLoadMenu()
         
     def load(self, name):
         self._mapping.load(name)
         self._isModified = False
+        self.enableAction()
         self.updateTitle()
         self.keyboardEditor.loadLayout()
     
@@ -187,8 +194,6 @@ class MainWindow(QMainWindow):
         self.load(act.data())
     
     
-    
-    
     def slotSave(self):
         if not self._mapping.isValid():
             title, isOk = QInputDialog.getText(self, self.tr("mapping name"), 
@@ -204,14 +209,31 @@ class MainWindow(QMainWindow):
     def save(self):
         self._mapping.save()
         self._isModified = False
+        self.saveAction.setDisabled(True)
         self.updateTitle()
         
     def slotRename(self):
-        print 'not implemented'
+        newName, isOk = QInputDialog.getText(self, self.tr("Rename"), self.tr("Enter the new name"))
+        if isOk:
+            self._mapping.setTitle(newName)
+            self._isModified = True
+            self.updateTitle()
     
     def slotDelete(self):
-        print 'not implemented'
-    
+        if self._mapping.isValid():
+            mess = self.tr("do you really want delete this \
+                        layout <b>{name}</b> and all its items?").format(name=self._mapping.title())
+            resp = QMessageBox.question(self, self.tr("Warning"), mess, QMessageBox.Yes, QMessageBox.No)
+            if resp == QMessageBox.No:
+                return
+            
+            self._mapping.delete()
+            self._isModified = False
+            self.enableAction()
+            self.updateTitle()
+            self.keyboardEditor.loadLayout()
+            self.fillLoadMenu()
+            
     def slotImport(self):
         print 'not implemented'
         
