@@ -162,7 +162,7 @@ class Mapping:
             self._mappingItems = {}
             
         self._name = getUniqueName()
-        self._title = title
+        self._title = getUniqueTile(title)
     
     def __getitem__(self, key):
         return self._mappingItems.get(key)
@@ -211,6 +211,18 @@ def getAllNames():
 def getAllTitles():
     return _getAll('title')
 
+def getAllNamesAndTitles():
+    configPath = util.configPath()
+    try:
+        root = ET.parse(configPath).getroot()
+        info = [(elt.attrib['name'], elt.attrib['title']) for elt in root]
+        return sorted(info, key=lambda x: x[1].lower())
+    
+    except:
+        return []
+    return []
+    
+
 def getUniqueName():
     names = getAllNames()
     while True:
@@ -224,7 +236,7 @@ def getUniqueTile(title):
     newTitle = title
     i = 2
     while newTitle in titles:
-        newTitle = "{}-{}".format(i)
+        newTitle = "{}-{}".format(title, i)
         i += 1
         
     return newTitle
