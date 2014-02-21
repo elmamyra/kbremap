@@ -120,6 +120,19 @@ class Mapping:
             return True
         return False
     
+    def delete(self):
+        if self._name:
+            tree = self.loadTree()
+            root = tree.getroot()
+            mappingElt = root.find("mapping[@name='{}']".format(self._name))
+            if mappingElt is not None:
+                root.remove(mappingElt)
+                indent(root)
+                tree.write(util.configPath(), encoding="utf-8", xml_declaration=True)
+                self._name = ''
+                self._title = ''
+                self._mappingItems = {}
+    
     def save(self):
         if self._name:
             tree = self.loadTree()
