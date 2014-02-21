@@ -21,9 +21,9 @@ class DialogEditor(QDialog):
         self.setWindowTitle(self.tr("key editor"))
         layout = QVBoxLayout()
         top = QHBoxLayout()
-        self.typeButton = QPushButton()
+        self.typeChooser = QComboBox()
         top.addWidget(QLabel(self.tr("Type:")))
-        top.addWidget(self.typeButton)
+        top.addWidget(self.typeChooser)
         top.addStretch(1)
         
         self.stackedWid = QStackedWidget()
@@ -55,12 +55,9 @@ class DialogEditor(QDialog):
         
         menuList = (d.TEXT, d.LAUNCHER, d.SHORTCUT)
         #fill the menu
-        menu = QMenu(self.typeButton)
         for typ in menuList:
             title, iconName = d.DATA_TYPE[typ]
-            menu.addAction(icons.get(iconName), title).setData(typ)
-            
-        self.typeButton.setMenu(menu)
+            self.typeChooser.addItem(icons.get(iconName), title, typ)
         
         self.typeToPage = {d.TEXT: PageText(),
                            d.LAUNCHER: PageLauncher(),
@@ -76,18 +73,20 @@ class DialogEditor(QDialog):
         if mItem is not None:
             self.load(mItem)
         else:
-            self.currentType = -1
+            self.typeChooser.setCurrentIndex(-1)
             self.stackedWid.setCurrentWidget(self.pageEmpty)
         
         
-        menu.triggered.connect(self.slotTypeChanged)
+        self.typeChooser.activated.connect(self.slotTypeChanged)
     
     def load(self, mItem):
         pass
+        
     
     def accept(self):
         page = self.stackedWid.currentWidget()
-        if self.currentType == -1:
+        typ = self.typeChooser.currentIndex()
+        if  typ == -1:
             QMessageBox.warning(self, self.tr("Warning"), self.tr("You must select a type of key."))
             return
         
@@ -103,14 +102,12 @@ class DialogEditor(QDialog):
                 mess = self.tr("You must enter a text")
             QMessageBox.warning(self, self.tr("Warning"), mess)
             return
-        self.data = self.currentType, page.data(), self.displayType, self.displayValue
+        self.data = typ, page.data(), self.displayType, self.displayValue
         self.done(QDialog.Accepted)
     
     def getData(self):
         return self.data
     
-    def slotTypeChanged(self, act):
-        self.stackedWid.setCurrentWidget(self.typeToPage.get(act.data()) or self.pageEmpty)
-        self.typeButton.setText(act.text())
-        self.typeButton.setIcon(act.icon())
-        self.currentType = act.data()
+    def slotTypeChanged(self, index):
+        typ = self.typeChooser.itemData(index)
+        self.stackedWid.setCurrentWidget(self.typeToPage.get(typ) or self.pageEmpty)
