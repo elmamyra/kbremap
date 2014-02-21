@@ -68,7 +68,7 @@ class DialogEditor(QDialog):
             self.typeChooser.addItem(icons.get(iconName), title, typ)
         
         self.typeToPage = {d.TEXT: PageText(),
-                           d.LAUNCHER: PageLauncher(),
+                           d.LAUNCHER: PageLauncher(self.iconChooser),
                            d.SHORTCUT: PageShortcut()
                         }
         
@@ -99,7 +99,7 @@ class DialogEditor(QDialog):
             self.textLineEdit.setText(mItem.displayValue)
         else:
             self.radioIcon.setChecked(True)
-            self.iconChooser.setIconFile(mItem.displayValue)
+            self.iconChooser.setIcon(mItem.displayValue)
     
     def accept(self):
         page = self.stackedWid.currentWidget()
@@ -112,7 +112,7 @@ class DialogEditor(QDialog):
             QMessageBox.warning(self, self.tr("Warning"), page.errorMessage())
             return
         self.displayType = d.GR_ICON if self.radioIcon.isChecked() else d.GR_TEXT
-        self.displayValue = self.iconChooser.iconFile() if self.displayType == d.GR_ICON else self.textLineEdit.text()
+        self.displayValue = self.iconChooser.getIconName() if self.displayType == d.GR_ICON else self.textLineEdit.text()
         if not self.displayValue:
             if self.displayType == d.GR_ICON:
                 mess = self.tr("You must select an icon")
