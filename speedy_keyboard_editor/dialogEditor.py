@@ -5,14 +5,20 @@ Dialog to add or edit a key.
 """
 
 from PySide.QtGui import *
-from PySide.QtCore import Qt
+from PySide.QtCore import Qt, Signal
 from pageEditor import *
 import util
 import data as d
 import icons
 
 
-
+class TextLineEdit(QLineEdit):
+    focusIn = Signal()
+    def __init__(self, parent=None):
+        QLineEdit.__init__(self, parent)
+        
+    def focusInEvent(self, event):
+        self.focusIn.emit()
 
 
 class DialogEditor(QDialog):
@@ -33,7 +39,7 @@ class DialogEditor(QDialog):
         layoutGroupBox.setFormAlignment(Qt.AlignHCenter|Qt.AlignLeft)
         self.radioIcon = QRadioButton(self.tr("Icon:"), checked=True)
         self.radioText = QRadioButton(self.tr("text:"))
-        self.textLineEdit = QLineEdit()
+        self.textLineEdit = TextLineEdit()
         self.iconChooser = IconChooser()
         
         
@@ -76,7 +82,8 @@ class DialogEditor(QDialog):
             self.typeChooser.setCurrentIndex(-1)
             self.stackedWid.setCurrentWidget(self.pageEmpty)
         
-        
+        self.iconChooser.iconChanged.connect(self.radioIcon.click)
+        self.textLineEdit.focusIn.connect(self.radioText.click)
         self.typeChooser.activated.connect(self.slotTypeChanged)
     
     def load(self, mItem):
@@ -84,7 +91,13 @@ class DialogEditor(QDialog):
         page = self.typeToPage.get(typ, self.pageEmpty)
         page.setData(mItem.data)
         self.stackedWid.setCurrentWidget(page)
-        
+        self.typeChooser.setCurrentIndex(self.typeChooser.findData(typ))
+        if mItem.displayType == d.GR_TEXT:
+            self.radioText.setChecked(True)
+            self.textLineEdit.setText(mItem.displayValue)
+        else:
+            self.radioIcon.setChecked(True)
+            self.iconChooser.setIconFile(mItem.displayValue)
     
     def accept(self):
         page = self.stackedWid.currentWidget()
