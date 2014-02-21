@@ -43,7 +43,6 @@ class KeyBase(QGraphicsRectItem):
         self.keyRound = 4
         self._keycode = keycode
         self.content = None
-#         self._rect = QRectF()
         self._color = QColor()
         self._mItem = None
         self._isUsed = True
@@ -87,6 +86,7 @@ class KeyBase(QGraphicsRectItem):
         if self.content:
             self.scene().removeItem(self.content)
             self.content = None
+            self._mItem = None
     
     def setColor(self, colorName):
         self._color = util.keyboardColors(colorName)
@@ -104,18 +104,33 @@ class KeyBase(QGraphicsRectItem):
             tooltip = u'<b>{}</b><br/>{}'.format(name, val)
             self.setToolTip(tooltip)
     
+    def pixmap(self):
+        if self._mItem:
+            if self._mItem.displayType == d.GR_ICON:
+                pix = self.content.pixmap()
+            else:
+                fontMetric = QFontMetrics(self.content.font())
+                rect = fontMetric.tightBoundingRect(self.content.toPlainText())
+                size = rect.size()
+                pix = QPixmap(size)
+                pix.fill(Qt.transparent)
+                painter = QPainter(pix)
+                painter.setFont(self.content.font())
+                x = -rect.x() + (size.width() - rect.width())/2
+                y = -rect.y() + (size.height() - rect.height())/2
+                painter.drawText(x, y, self.content.toPlainText())
+                painter.end()
+            return pix
+        return None
+    
     def select(self):
         self.setBrush(util.keyboardColors('select'))
         
-#     def hover(self):
-#         clr = self._color.rgb() + 0x0E0E0E
-#         self.setBrush(QColor(clr))
 #         
-#     def restoreColor(self):
-#         self.setBrush(self._color)
+    def restoreColor(self):
+        self.setBrush(self._color)
     
     def setSize(self, w, h):
-#         self._rect.setRect(0, 0, w, h)
         self.setRect(0, 0, w, h)
     
     def getCenter(self, rect):
@@ -127,7 +142,6 @@ class KeyBase(QGraphicsRectItem):
         size = int(self.view().keySize()/2)
         if len(text) > 1:
             size = int(self.view().keySize()/4)
-#         self._mItem = None
         self.clear()
             
         self.content = QGraphicsTextItem(text, self)
@@ -149,8 +163,10 @@ class KeyBase(QGraphicsRectItem):
         self._mItem = mItem
         val = mItem.displayValue
         if mItem.displayType == d.GR_TEXT:
-            pass
-        self.setText(val) if mItem.displayType == d.GR_TEXT else self.setIcon(val, isPath=True) #@NoEffect
+            self.setText(val)
+        else:
+            self.setIcon(val, sizeCoef=0.8, isPath=True)
+            
         self.setColor('content')
         self.setMItemTooltip()
     
@@ -173,13 +189,13 @@ class KeyBase(QGraphicsRectItem):
             event.ignore()
   
     def mouseReleaseEvent(self, event):
-        if self.isUsed() and event.buttons() == Qt.LeftButton:
+        if self.isUsed():
             self.view().keyReleased.emit(event.scenePos())
         else:
             event.ignore()
         
     def mouseMoveEvent(self, event):
-        if self.isUsed():
+        if self.isUsed() and self._mItem:
             self.view().keyMove.emit(event.scenePos())
         else:
             event.ignore()
@@ -188,12 +204,10 @@ class KeyBase(QGraphicsRectItem):
         if self.isUsed():
             clr = self._color.rgb() + 0x0E0E0E
             self.setBrush(QColor(clr))
-#         self.view().keyHover.emit(self)
         
     def hoverLeaveEvent(self, event):
         if self.isUsed():
             self.setBrush(self._color)
-#         self.view().keyLeave.emit(self)
     
     def view(self):
         return self.scene().views()[0]
@@ -238,10 +252,10 @@ class ReturnKey(KeyBase):
 
 class KeyboardView(QGraphicsView):
     """ """
-    keyPressed = Signal(Key)
-    keyReleased = Signal(QPointF)
+    keyPressed = Signal(KeyBase)
+    keyReleased = Signal(KeyBase)
     modifierPressed = Signal(int)
-    keyDoubleClicked = Signal(Key)
+    keyDoubleClicked = Signal(KeyBase)
     keyModified = Signal()
 #     keyContext = Signal(Key, QPoint)
     keyMove = Signal(QPointF)
@@ -264,13 +278,13 @@ class KeyboardView(QGraphicsView):
         self.model = ()
         self._modifierStates = {}
         self.currentPressed = None
+        self.currentHover = None
         for mod in d.ALT, d.CTRL, d.SHIFT, d.SUPER, d.NUM_LOCK, d.CAPS_LOCK, d.ALT_GR:
             self._modifierStates[mod] = False
         self._modifierStates[d.NUM_LOCK] = True
         
         self.keyDoubleClicked.connect(self.slotEditKey)
         self.modifierPressed.connect(self.slotModifierPressed)
-#         self.keyPressed.connect(self.slotKeyPressed)
         self.keyReleased.connect(self.slotKeyReleased)
         self.keyMove.connect(self.slotKeyMove)
     
@@ -315,108 +329,106 @@ class KeyboardView(QGraphicsView):
                 addY = coef[2]*si+1 if len(coef) == 3 else 0
                 key.setPos(x, y+addY)
                 x += w + sp
-#                 key.keyDoubleClicked.connect(self.slotEditKey)
-#                 key.modifierPressed.connect(self.slotModifierPressed)
             y += si + sp
             x = 0
     
     def loadLayout(self):
-        for key in self.keys():
-            char = self.display.charFromModifier(key.keycode(), *self.usefulModifier())
-            item = self.mapping()[(key.keycode(), self.modifier2hexa(key.isKeypadKey()))]
+        for key in self._keys:
+            self.loadKey(key)
             
-            if item:
-                key.setMappingItem(item)
-            else:
-                if not char:
-                    firstChar = self.display.charFromModifier(key.keycode())
-                    for k in ('BackSpace', 'Tab', 'Num_Lock'):
-                        if k == firstChar:
-                            char = k
-                            break
-                    else:
-                        key.clear()
-                
-#                 if not key.isUsed():
-#                     key.setColor('not-used')
-#                     continue
-                 
-                if key.isModifier():
-                    meth, val = {
-                        d.ALT: (key.setText, 'Alt'),
-                        d.CTRL: (key.setText, 'Ctrl'),
-                        d.SHIFT: (key.setIcon, 'arrow-shift'),
-                        d.SUPER: (key.setIcon, 'linux'),
-                        d.NUM_LOCK: (key.setText, 'Num\nLock'),
-                        d.CAPS_LOCK: (key.setText, 'Caps\nLock'),
-                        d.ALT_GR: (key.setText, 'Art Gr'),
-                    }[key.modifier()]
-                    meth(val)
-                        
-                elif len(char) > 1:
-                    if char == 'BackSpace':
-                        key.setIcon('backspace', 'backspace')
-                    elif char in ('Tab', 'ISO_Left_Tab'):
-                        key.setIcon('tab', 'Tabulation')
-                    elif char in ('Up', 'KP_Up'):
-                        key.setIcon('arrow-up', 'Up')
-                    elif char in ('Left', 'KP_Left'):
-                        key.setIcon('arrow-left', 'Left')
-                    elif char in ('Right', 'KP_Right'):
-                        key.setIcon('arrow-right', 'Right')
-                    elif char in ('Down', 'KP_Down'):
-                        key.setIcon('arrow-down', 'Down')
-                    elif char in ('Return', 'KP_Enter'):
-                        key.setIcon('arrow-return', 'Return')
-                    elif char in 'Menu':
-                        key.setIcon('dropmenu', 'Menu')
-                    elif char == 'KP_Divide':
-                        key.setText('/')
-                    elif char == 'KP_Multiply':
-                        key.setText('*')
-                    elif char == 'KP_Subtract':
-                        key.setText('-')
-                    elif char == 'KP_Add':
-                        key.setText('+')
-                    elif char.startswith('KP_') and char[-1].isdigit():
-                        key.setText(char[-1])
-                    elif char.startswith('KP_'):
-                        key.setText(char[3:].replace('_', '\n'))
-                    elif char in ('L1', 'L2'):
-                        key.setText(char.replace('L', 'F1'))
-                    elif char.lower() == 'dead_circumflex':
-                        key.setText(u"\u005E")
-                    elif char.lower() == 'dead_acute':
-                        key.setText(u"\u00B4")
-                    elif char.lower() == 'dead_abovering':
-                        key.setText(u"\u00B0")
-                    elif char.lower() in ('dead_tilde', 'dead_perispomeni'):
-                        key.setText(u"\u007E")
-                    elif char == 'dead_belowcomma':
-                        key.setText(u"\u00B8")
-                    elif char == 'dead_horn':
-                        key.setText(u"\u031b")
-                    elif char == 'dead_hook':
-                        key.setText(u"\u0309")
-                    elif char == 'dead_belowdot':
-                        key.setText(u"\u0323")
-                    elif char.lower().startswith('dead_'):
-                        key.setText(self.display.name2Char(char[5:].lower()))
-                    else:
-                        key.setText(char.replace("_", "\n"))
-                
-                else:
-                    key.setText(char)
-                
-                if key.isModifier():
-                    key.setColor("modifier-on" if self._modifierStates[key.modifier()] else "modifier-off")
-                elif not char:
-                    key.setColor('no-char')
+            
+    def loadKey(self, key):
+        key.clear()
+        char = self.display.charFromModifier(key.keycode(), *self.usefulModifier())
+        item = self.mapping()[(key.keycode(), self.modifier2hexa(key.isKeypadKey()))]
+        
+        if item:
+            key.setMappingItem(item)
+        else:
+            if not char:
+                firstChar = self.display.charFromModifier(key.keycode())
+                for k in ('BackSpace', 'Tab', 'Num_Lock'):
+                    if k == firstChar:
+                        char = k
+                        break
+            
+            if key.isModifier():
+                meth, val = {
+                    d.ALT: (key.setText, 'Alt'),
+                    d.CTRL: (key.setText, 'Ctrl'),
+                    d.SHIFT: (key.setIcon, 'arrow-shift'),
+                    d.SUPER: (key.setIcon, 'linux'),
+                    d.NUM_LOCK: (key.setText, 'Num\nLock'),
+                    d.CAPS_LOCK: (key.setText, 'Caps\nLock'),
+                    d.ALT_GR: (key.setText, 'Art Gr'),
+                }[key.modifier()]
+                meth(val)
                     
+            elif len(char) > 1:
+                if char == 'BackSpace':
+                    key.setIcon('backspace', 'backspace')
+                elif char in ('Tab', 'ISO_Left_Tab'):
+                    key.setIcon('tab', 'Tabulation')
+                elif char in ('Up', 'KP_Up'):
+                    key.setIcon('arrow-up', 'Up')
+                elif char in ('Left', 'KP_Left'):
+                    key.setIcon('arrow-left', 'Left')
+                elif char in ('Right', 'KP_Right'):
+                    key.setIcon('arrow-right', 'Right')
+                elif char in ('Down', 'KP_Down'):
+                    key.setIcon('arrow-down', 'Down')
+                elif char in ('Return', 'KP_Enter'):
+                    key.setIcon('arrow-return', 'Return')
+                elif char in 'Menu':
+                    key.setIcon('dropmenu', 'Menu')
+                elif char == 'KP_Divide':
+                    key.setText('/')
+                elif char == 'KP_Multiply':
+                    key.setText('*')
+                elif char == 'KP_Subtract':
+                    key.setText('-')
+                elif char == 'KP_Add':
+                    key.setText('+')
+                elif char.startswith('KP_') and char[-1].isdigit():
+                    key.setText(char[-1])
+                elif char.startswith('KP_'):
+                    key.setText(char[3:].replace('_', '\n'))
+                elif char in ('L1', 'L2'):
+                    key.setText(char.replace('L', 'F1'))
+                elif char.lower() == 'dead_circumflex':
+                    key.setText(u"\u005E")
+                elif char.lower() == 'dead_acute':
+                    key.setText(u"\u00B4")
+                elif char.lower() == 'dead_abovering':
+                    key.setText(u"\u00B0")
+                elif char.lower() in ('dead_tilde', 'dead_perispomeni'):
+                    key.setText(u"\u007E")
+                elif char == 'dead_belowcomma':
+                    key.setText(u"\u00B8")
+                elif char == 'dead_horn':
+                    key.setText(u"\u031b")
+                elif char == 'dead_hook':
+                    key.setText(u"\u0309")
+                elif char == 'dead_belowdot':
+                    key.setText(u"\u0323")
                 elif char.lower().startswith('dead_'):
-                    key.setColor('dead-key')
+                    key.setText(self.display.name2Char(char[5:].lower()))
                 else:
-                    key.setColor('default')
+                    key.setText(char.replace("_", "\n"))
+            
+            else:
+                key.setText(char)
+            
+            if key.isModifier():
+                key.setColor("modifier-on" if self._modifierStates[key.modifier()] else "modifier-off")
+            elif not char:
+                key.setColor('no-char')
+                
+            elif char.lower().startswith('dead_'):
+                key.setColor('dead-key')
+            else:
+                key.setColor('default')
+    
     
     def mapping(self):
         return self.mainWindow.mapping()
@@ -433,24 +445,67 @@ class KeyboardView(QGraphicsView):
         if not key.isModifier():
             dlg = dialogEditor.DialogEditor(self)
             if dlg.exec_():
-                print 'key', key.isKeypadKey()
                 item = MappingItem(key.keycode(), self.modifier2hexa(key.isKeypadKey()), *dlg.getData())
                 self.mapping().addItem(item)
                 key.setMappingItem(item)
                 self.keyModified.emit()
     
+    
+    
+    def slotKeyReleased(self, pos):
+        key = self.keyAt(pos)
+        if self.currentPressed and key and key.isUsed() and not key.isModifier():
+            sourceMItem = self.mapping().popItem(self.currentPressed)
+            sourceModifiers = sourceMItem.modifiers
+            sourceKeycode = sourceMItem.keycode
+            currentModifiers = self.modifier2hexa(key.isKeypadKey())
+            
+            cibleKey = key
+            cibleMItem = self.mapping().popItemFromKey(cibleKey.keycode(), currentModifiers)
+            newCibleMItem = sourceMItem
+            newCibleMItem.keycode = cibleKey.keycode()
+            newCibleMItem.modifiers = currentModifiers
+            self.mapping().addItem(newCibleMItem)
+            
+            if cibleMItem:
+                newSourceMItem = cibleMItem
+                newSourceMItem.keycode = sourceKeycode
+                newSourceMItem.modifiers = sourceModifiers
+                self.mapping().addItem(newSourceMItem)
+                
+            self.loadLayout()
+            self.keyModified.emit()
+            
+            
+        self.currentPressed = None
+        if self.currentHover:
+            self.currentHover.restoreColor()
+            self.currentHover = None
+        self.setCursor(Qt.ArrowCursor)
+    
     def slotKeyMove(self, pos):
         key = self.keyAt(pos)
         if self.currentPressed:
-            pass
+            if self.currentHover != key:
+                if self.currentHover:
+                    self.currentHover.restoreColor()
+                if key and key.isUsed() and not key.isModifier():
+                    key.select()
+                    self.currentHover = key
+                    
+        elif key:
+            pix = key.pixmap()
+            if pix:
+                self.setCursor(QCursor(pix))
+                self.currentPressed = key.mItem()
+                self.currentHover = key
         
-#     def slotKeyPressed(self, pos):
-#         print pos
+    def keyAt(self, pos):
+        key = self.scene().itemAt(pos)
+        if key and not isinstance(key, KeyBase):
+            key = key.parentItem()
+        return key
         
-    def slotKeyReleased(self, pos):
-        print pos
-        
-    
     def usefulModifier(self):
         li = (d.SHIFT, d.NUM_LOCK, d.CAPS_LOCK, d.ALT_GR)
         return [self._modifierStates[mod] for mod in li]
@@ -479,12 +534,6 @@ class KeyboardView(QGraphicsView):
                     modState |= modMask
         return modState
 
-#     def findKeyByChar(self, char):
-#         for k in self._keys:
-#             if k.char() and k.char() == char:
-#                 return k
-#         return None
-    
     def updateSize(self):
         if not self.model:
             return
