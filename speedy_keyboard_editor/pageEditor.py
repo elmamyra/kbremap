@@ -1,7 +1,7 @@
 
 from PySide.QtGui import *
 from widgets import IconChooser
-
+import os
 
 class PageBase(QWidget):
     def __init__(self, parent=None):
@@ -27,13 +27,7 @@ class PageBase(QWidget):
 class PageEmpty(PageBase):
     def __init__(self):
         PageBase.__init__(self)
-#         self._data = None
-#         
-#     def setData(self, data):
-#         self._data = data
-#         
-#     def data(self):
-#         return self._data
+
 
 class PageText(PageBase):
     def __init__(self):
@@ -61,11 +55,42 @@ class PageText(PageBase):
     
     
 class PageLauncher(PageBase):
-    def __init__(self):
+    def __init__(self, iconChooser):
         PageBase.__init__(self)
+        self.iconChooser = iconChooser
         self.lineEdit = QLineEdit(self)
+        self.lineEdit.setAcceptDrops(False)
         self.layout.addWidget(QLabel(self.tr("Command:")))
         self.layout.addWidget(self.lineEdit)
+        self.setAcceptDrops(True)
+    
+    def dragEnterEvent(self, e):
+      
+        if e.mimeData().hasFormat('text/plain'):
+            e.accept()
+             
+        else:
+            e.ignore() 
+
+    def dropEvent(self, e):
+        mime = e.mimeData()
+        text = str(mime.data('text/plain')).strip()
+        path = text[7:]
+        if os.path.exists(path) and os.path.splitext(path)[1] == '.desktop':
+            with open(path) as f:
+                command = ''
+                icon = ''
+                for line in f:
+                    if line.startswith('Exec='):
+                        command = line.split('=')[1]
+                    if line.startswith('Icon='):
+                        icon = line.split('=')[1]
+                
+                self.lineEdit.setText(command.strip())
+                self.iconChooser.setIcon(icon.strip())
+        else:
+            self.lineEdit.setText(text)
+        
     
     def data(self):
         return self.lineEdit.text()
