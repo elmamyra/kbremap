@@ -1,9 +1,10 @@
 
 from PySide.QtGui import *
-from PySide.QtCore import QSettings, QSize
+from PySide.QtCore import QSettings, QSize, Signal
 import os
 
 class IconChooser(QToolButton):
+    iconChanged = Signal()
     def __init__(self, parent=None):
         super(IconChooser, self).__init__(parent)
         self.iconPath = ''
@@ -19,6 +20,7 @@ class IconChooser(QToolButton):
         iconFile = QFileDialog.getOpenFileName(self, self.tr("Icon"), iconPath, extStr)[0]
         if iconFile:
             self.setIconFile(iconFile)
+            self.iconChanged.emit()
             
     def iconFile(self):
         return self.defaultAction().data()
