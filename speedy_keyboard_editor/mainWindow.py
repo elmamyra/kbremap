@@ -5,6 +5,7 @@
 from PySide.QtGui import *  # @UnusedWildImport
 from PySide.QtCore import * # @UnusedWildImport
 from keyboardview import KeyboardView
+from dialogNew import DialogNew
 import mapping
 import icons
 import info
@@ -79,7 +80,11 @@ class MainWindow(QMainWindow):
         a = act(self.tr("&New..."), self.slotNew, Qt.CTRL + Qt.Key_N, 'document-new')
         menuMapping.addAction(a)
         
-        a = act(self.tr("&Save..."), self.slotSave, Qt.CTRL + Qt.Key_S, 'document-save')
+        self.loadMenu = menuMapping.addMenu(self.tr("&Load"))
+        self.fillLoadMenu()
+#         self.loadMenu.aboutToShow.connect(self.fillLoadMenu)
+        
+        self.saveAction = a = act(self.tr("&Save..."), self.slotSave, Qt.CTRL + Qt.Key_S, 'document-save')
         menuMapping.addAction(a)
         
         a = act(self.tr("&Rename..."), self.slotRename, Qt.CTRL + Qt.Key_R, 'go-jump')
@@ -107,6 +112,19 @@ class MainWindow(QMainWindow):
         title = ' '.join((mappingTitle, modified, '-', info.name))
         self.setWindowTitle(title)
     
+    def fillLoadMenu(self):
+        m = self.loadMenu
+        m.clear()
+        
+        self.mappingActionGroup = ag = QActionGroup(self, exclusive=True)
+        
+        for name, title in mapping.getAllNamesAndTitles():
+            act = ag.addAction(QAction(title, self, checkable=True, checked=name==self._mapping.name()))
+            act.setData(name)
+            m.addAction(act)
+        ag.triggered.connect(self.slotLoad)
+        m.setEnabled(bool(ag.actions()))
+    
     def mapping(self):   
         return self._mapping
         
@@ -120,8 +138,57 @@ class MainWindow(QMainWindow):
             self.updateTitle()
 
     def slotNew(self):
-        print 'not implemented'
+        if self._isModified:
+            resp = self.saveDialog()
+            if resp == QMessageBox.Cancel:
+                return
+            
+            if resp == QMessageBox.Save:
+                self.saveAction.trigger()
+                
+        dlg = DialogNew(self, self._mapping.name())
+        if dlg.exec_():
+            title, from_ = dlg.getData()
+            self._mapping.create(title, from_)
+            self._mapping.save()
+            self._isModified = False
+            self.updateTitle()
+            self.keyboardEditor.loadLayout()
+            self.fillLoadMenu()
         
+    def load(self, name):
+        self._mapping.load(name)
+        self._isModified = False
+        self.updateTitle()
+        self.keyboardEditor.loadLayout()
+    
+    def saveDialog(self):
+        title = self.tr("Close mapping")
+        name = self._mapping.title() or self.tr("Untitled")
+        mess = self.tr("The mapping \"{name}\" has been modified.<br/>\
+            Do you want to save your changes or discard them?").format(name=name)
+        buttons = QMessageBox.Discard | QMessageBox.Cancel | QMessageBox.Save
+        return QMessageBox.question(self, title, mess, buttons=buttons)
+        
+    
+    def slotLoad(self, act):
+        if self._isModified:
+            resp = self.saveDialog()
+        
+            if resp == QMessageBox.Cancel:
+                prevAction = filter(lambda a: a.data() == self._mapping.name(), 
+                                    self.mappingActionGroup.actions())[0]
+                prevAction.setChecked(True)
+                return
+            
+            if resp == QMessageBox.Save:
+                self.saveAction.trigger()
+        
+        self.load(act.data())
+    
+    
+    
+    
     def slotSave(self):
         if not self._mapping.isValid():
             title, isOk = QInputDialog.getText(self, self.tr("mapping name"), 
@@ -152,6 +219,14 @@ class MainWindow(QMainWindow):
         print 'not implemented'
     
     def closeEvent(self, event):
+        if self._isModified:
+            resp = self.saveDialog()
+            if resp == QMessageBox.Cancel:
+                return
+            
+            if resp == QMessageBox.Save:
+                self.saveAction.trigger()
+        
         settings = QSettings()
         settings.setValue("geometry", self.saveGeometry())
         settings.setValue("windowState", self.saveState())
@@ -161,5 +236,5 @@ class MainWindow(QMainWindow):
         
         QMainWindow.closeEvent(self, event)
         
-        
+   
         
