@@ -98,6 +98,15 @@ class Mapping:
     def getItem(self, keycode, modifiers):
         return self._mappingItems.get((keycode, modifiers))
     
+    def popItemFromKey(self, keycode, modifiers):
+        return self._mappingItems.pop((keycode, modifiers), None)
+        
+    def popItem(self, item):
+        for k, v in self._mappingItems.items():
+            if v == item:
+                return self._mappingItems.pop(k)
+        return None
+    
     def load(self, name):
         root = self.loadTree().getroot()
         mappingElt = root.find("mapping[@name='{}']".format(name))
