@@ -1,6 +1,7 @@
 
 from PySide.QtGui import *
 from PySide.QtCore import QSettings, QSize, Signal
+import icons
 import os
 
 class IconChooser(QToolButton):
@@ -22,9 +23,9 @@ class IconChooser(QToolButton):
             self.setIconFile(iconFile)
             self.iconChanged.emit()
             
-    def iconFile(self):
+    def getIconName(self):
         return self.defaultAction().data()
     
-    def setIconFile(self, iconFile):
-        self.defaultAction().setIcon(QIcon(iconFile))
-        self.defaultAction().setData(iconFile)
+    def setIcon(self, icon):
+        self.defaultAction().setIcon(icons.get(icon))
+        self.defaultAction().setData(icon)
