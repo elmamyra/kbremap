@@ -82,13 +82,15 @@ class MainWindow(QMainWindow):
         
         self.loadMenu = menuMapping.addMenu(self.tr("&Load"))
         self.fillLoadMenu()
-#         self.loadMenu.aboutToShow.connect(self.fillLoadMenu)
         
-        self.saveAction = act(self.tr("&Save..."), self.slotSave, Qt.CTRL + Qt.Key_S, 'document-save')
+        self.saveAction = act(self.tr("&Save"), self.slotSave, Qt.CTRL + Qt.Key_S, 'document-save')
         menuMapping.addAction(self.saveAction)
         
-        self.renameAction = act(self.tr("&Rename..."), self.slotRename, Qt.CTRL + Qt.Key_R, 'go-jump')
+        self.renameAction = act(self.tr("&Rename..."), self.slotRename, Qt.Key_F2, 'go-jump')
         menuMapping.addAction(self.renameAction)
+        
+        self.clearAction = act(self.tr("&Clear"), self.slotClear, Qt.CTRL + Qt.Key_C, 'edit-clear')
+        menuMapping.addAction(self.clearAction)
         
         self.deleteAction = act(self.tr("&Delete"), self.slotDelete, Qt.CTRL + Qt.Key_D, 'edit-delete')
         menuMapping.addAction(self.deleteAction)
@@ -215,10 +217,22 @@ class MainWindow(QMainWindow):
     def slotRename(self):
         newName, isOk = QInputDialog.getText(self, self.tr("Rename"), self.tr("Enter the new name"))
         if isOk:
-            self._mapping.setTitle(newName)
-            self._isModified = True
+            self._mapping.rename(newName)
+            self.fillLoadMenu()
             self.updateTitle()
     
+    def slotClear(self):
+        if self._mapping.isValid():
+            mess = self.tr("do you really want delete all items?").format(name=self._mapping.title())
+            resp = QMessageBox.question(self, self.tr("Warning"), mess, QMessageBox.Yes, QMessageBox.No)
+            if resp == QMessageBox.No:
+                return
+            
+            self._mapping.clear()
+            self._isModified = True
+            self.keyboardEditor.loadLayout()
+            self.updateTitle()
+        
     def slotDelete(self):
         if self._mapping.isValid():
             mess = self.tr("do you really want delete this \
