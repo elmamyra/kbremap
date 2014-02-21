@@ -141,23 +141,19 @@ class KeyBase(QGraphicsRectItem):
     def setText(self, text, elided=False):
         size = self.view().keySize()
         if len(text) == 1:
-            fontSize = int(size/2)
+            self.font.setPixelSize(int(size/2))
         elif len(text) == 2:
-            fontSize = int(size/2.5)
+            self.font.setPixelSize(int(size/2.5))
         elif len(text) == 3:
-            fontSize = int(size/3)
+            self.font.setPixelSize(int(size/3))
         else:
-            fontSize = int(size/4)
+            self.font.setPixelSize(int(size/4))
             if elided:
                 metric = QFontMetrics(self.font)
                 text = metric.elidedText(text, Qt.ElideRight, size-2)
             
-            
         self.clear()
-        
-        
         self.content = QGraphicsTextItem(text, self)
-        self.font.setPixelSize(fontSize)
         
         self.content.setFont(self.font)
         self.content.setPos(self.getCenter(self.content.boundingRect()))
@@ -456,7 +452,7 @@ class KeyboardView(QGraphicsView):
     
     def slotEditKey(self, key):
         if not key.isModifier():
-            dlg = dialogEditor.DialogEditor(self)
+            dlg = dialogEditor.DialogEditor(self, key.mItem())
             if dlg.exec_():
                 item = MappingItem(key.keycode(), self.modifier2hexa(key.isKeypadKey()), *dlg.getData())
                 self.mapping().addItem(item)
