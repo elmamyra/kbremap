@@ -267,7 +267,7 @@ class KeyboardView(QGraphicsView):
     modifierPressed = Signal(int)
     keyDoubleClicked = Signal(KeyBase)
     keyModified = Signal()
-#     keyContext = Signal(Key, QPoint)
+    keyContext = Signal(Key, QPoint)
     keyMove = Signal(QPointF)
     resized = Signal()
     def __init__(self, parent, mainWindow):
@@ -295,6 +295,7 @@ class KeyboardView(QGraphicsView):
         self.modifierPressed.connect(self.slotModifierPressed)
         self.keyReleased.connect(self.slotKeyReleased)
         self.keyMove.connect(self.slotKeyMove)
+        self.keyContext.connect(self.slotContext)
     
     def drawKey(self):
         self.scene().clear()
@@ -505,6 +506,25 @@ class KeyboardView(QGraphicsView):
                 self.setCursor(QCursor(pix))
                 self.currentPressed = key.mItem()
                 self.currentHover = key
+    
+    def slotContext(self, key, pos):
+        menu = QMenu()
+        editAction = QAction(icons.get('document-edit'), self.tr("Edit..."), self)
+        deleteAction = QAction(icons.get('list-remove'), self.tr("Remove"), self)
+        menu.addAction(editAction)
+        if key.mItem():
+            menu.addAction(deleteAction)
+
+        act = menu.exec_(pos)
+        if act == editAction:
+            self.keyDoubleClicked.emit(key)
+        elif act == deleteAction:
+            if key.mItem():
+                self.mapping().popItem(key.mItem())
+                key.clear()
+                self.keyModified.emit()
+                self.loadKey(key)
+                
         
     def keyAt(self, pos):
         key = self.scene().itemAt(pos)
