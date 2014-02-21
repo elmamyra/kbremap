@@ -80,7 +80,10 @@ class DialogEditor(QDialog):
         self.typeChooser.activated.connect(self.slotTypeChanged)
     
     def load(self, mItem):
-        pass
+        typ = mItem.type
+        page = self.typeToPage.get(typ, self.pageEmpty)
+        page.setData(mItem.data)
+        self.stackedWid.setCurrentWidget(page)
         
     
     def accept(self):
