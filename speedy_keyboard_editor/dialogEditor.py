@@ -4,9 +4,10 @@
 Dialog to add or edit a key.
 """
 
-from PySide.QtGui import *
-from PySide.QtCore import Qt, Signal
-from pageEditor import *
+from PySide.QtGui import *  # @UnusedWildImport
+from PySide.QtCore import Signal
+from pageEditor import *  # @UnusedWildImport
+from widgets import IconChooser
 import util
 import data as d
 import icons
@@ -93,6 +94,7 @@ class DialogEditor(QDialog):
         page = self.typeToPage.get(typ, self.pageEmpty)
         page.setData(mItem.data)
         self.stackedWid.setCurrentWidget(page)
+        page.start()
         self.typeChooser.setCurrentIndex(self.typeChooser.findData(typ))
         if mItem.displayType == d.GR_TEXT:
             self.radioText.setChecked(True)
@@ -128,4 +130,9 @@ class DialogEditor(QDialog):
     
     def slotTypeChanged(self, index):
         typ = self.typeChooser.itemData(index)
-        self.stackedWid.setCurrentWidget(self.typeToPage.get(typ) or self.pageEmpty)
+        page = self.typeToPage.get(typ, self.pageEmpty) 
+        self.stackedWid.setCurrentWidget(page)
+        page.start()
+        
+        
+        
