@@ -9,17 +9,14 @@ from dialogNew import DialogNew
 import mapping
 import icons
 import info
+import sys
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
-        
-#         self.shift = self.altGr = self.numLock = self.capsLock = False
-#         self.ctrl = self.alt = self.super = False
         self._isModified = False
         self.readSettings()
         self.setMenu()
-        
         QApplication.setWindowIcon(icons.get('speedy-keyboard'))
         centralWidget = QWidget(self)
         layout = QVBoxLayout(centralWidget)
@@ -272,5 +269,17 @@ class MainWindow(QMainWindow):
         
         QMainWindow.closeEvent(self, event)
         
-   
+def start():
+    app = QApplication(sys.argv)
+    locale = QLocale.system().name()
+    translator=QTranslator ()
+    translator.load("qt_" + locale,   
+                    QLibraryInfo.location(QLibraryInfo.TranslationsPath))
+    app.installTranslator(translator)
+    QApplication.setApplicationName(info.name)
+    QApplication.setApplicationVersion(info.version)
+    QApplication.setOrganizationName(info.name)
+    QApplication.setOrganizationDomain(info.domain)
+    win = MainWindow()
+    sys.exit(app.exec_())
         
