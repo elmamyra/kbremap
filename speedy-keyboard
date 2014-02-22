@@ -1,22 +1,19 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-from PySide.QtGui import QApplication
-from PySide.QtCore import QCoreApplication, QLocale, QLibraryInfo, QTranslator
+from optparse import OptionParser
 
-from speedy_keyboard_editor import mainWindow, info
-import sys
+parser = OptionParser()
 
-app = QApplication(sys.argv)
-locale = QLocale.system().name()
-translator=QTranslator ()
-translator.load("qt_" + locale,   
-                QLibraryInfo.location(QLibraryInfo.TranslationsPath))
-app.installTranslator(translator)
-QApplication.setApplicationName(info.name)
-QApplication.setApplicationVersion(info.version)
-QApplication.setOrganizationName(info.name)
-QApplication.setOrganizationDomain(info.domain)
-win = mainWindow.MainWindow()
-sys.exit(app.exec_())
+parser.add_option("-d", "--deamon", help="launch the deamon", default=False, action="store_true")
+
+
+if parser.parse_args()[0].deamon:
+    print 'deamon'
+else:    
+    from speedy_keyboard_editor import mainWindow
+    mainWindow.start()
+
+
+
 
 
