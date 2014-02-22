@@ -582,24 +582,23 @@ class KeyboardView(QGraphicsView):
         self.drawKey()
         self.loadLayout()
     
-#     def keyPressEvent(self, event):
-#         qkey = event.key()
-#         print qkey
-#         li = {
-#                 Qt.Key_Shift: d.SHIFT,
-#                 Qt.Key_Control: d.CTRL,
-#                 Qt.Key_Alt: d.ALT,
-#                 Qt.Key_Meta: d.SUPER,
-#                 Qt.Key_CapsLock: d.CAPS_LOCK,
-#                 Qt.Key_NumLock: d.NUM_LOCK,
-#                 Qt.Key_AltGr: d.ALT_GR,
-#              }
-#         
-#         mod = li.get(qkey)
-#         for key in self._modifierKeys:
-#             if key.modifier() == mod:
-#                 self.modifierPressed.emit(mod)
-#                 break
+    def keyPressEvent(self, event):
+        qkey = event.key()
+        li = {
+                Qt.Key_Shift: d.SHIFT,
+                Qt.Key_Control: d.CTRL,
+                Qt.Key_Alt: d.ALT,
+                Qt.Key_Meta: d.SUPER,
+                Qt.Key_CapsLock: d.CAPS_LOCK,
+                Qt.Key_NumLock: d.NUM_LOCK,
+                Qt.Key_AltGr: d.ALT_GR,
+             }
+         
+        mod = li.get(qkey)
+        for key in self._modifierKeys:
+            if key.modifier() == mod:
+                self.modifierPressed.emit(mod)
+                break
         
                 
     def resizeEvent(self, event):
