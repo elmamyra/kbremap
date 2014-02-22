@@ -1,16 +1,14 @@
 
 from PySide.QtGui import *
-from widgets import IconChooser
+from PySide.QtCore import Qt
+from widgets import ShortcutWidget
 import os
 
 class PageBase(QWidget):
     def __init__(self, parent=None):
         QWidget.__init__(self)
         self._data = None
-#         super(PageBase, self).__init__()
-#         self.dialog = dialog
         self.layout = QHBoxLayout(self)
-#         self.setLayout(self.layout)
         
     def data(self):
         return None
@@ -20,6 +18,12 @@ class PageBase(QWidget):
     
     def setData(self, data):
         pass
+    
+    def start(self):
+        pass
+    
+#     def finish(self):
+#         pass
     
     def errorMessage(self):
         return ''
@@ -38,6 +42,9 @@ class PageText(PageBase):
         self.layout.addWidget(QLabel(self.tr("Text:")))
         self.layout.addWidget(self.lineEdit)
         self.layout.addWidget(self.checkClipboard)
+    
+    def start(self):
+        self.lineEdit.setFocus(Qt.OtherFocusReason)
     
     def data(self):
         return (self.lineEdit.text(), self.checkClipboard.isChecked())
@@ -72,6 +79,9 @@ class PageLauncher(PageBase):
         else:
             e.ignore() 
 
+    def start(self):
+        self.lineEdit.setFocus(Qt.OtherFocusReason)
+
     def dropEvent(self, e):
         mime = e.mimeData()
         text = str(mime.data('text/plain')).strip()
@@ -91,7 +101,6 @@ class PageLauncher(PageBase):
         else:
             self.lineEdit.setText(text)
         
-    
     def data(self):
         return self.lineEdit.text()
     
@@ -108,10 +117,24 @@ class PageLauncher(PageBase):
 class PageShortcut(PageBase):
     def __init__(self):
         PageBase.__init__(self)
-        self.layout.addWidget(QLabel("TODO"))
+        self.shortcutWidget = ShortcutWidget()
+        self.layout.addWidget(self.shortcutWidget)
+    
+    def start(self):
+        self.shortcutWidget.setFocus(Qt.OtherFocusReason)
         
+    def data(self):
+        return self.shortcutWidget.data()
+    
+    def setData(self, data):
+        self.shortcutWidget.setData(*data)
+        
+    def isValid(self):
+        return bool(self.shortcutWidget.text())
+    
     def errorMessage(self):
-        return self.tr("You must enter a valid shortcut.")   
+        return self.tr("You must enter a shortcut.")   
+
         
         
         
