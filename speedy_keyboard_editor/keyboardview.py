@@ -33,7 +33,7 @@ import dialogEditor
 import util
 import data as d
 import icons
-import time
+import os
 
 
 class KeyBase(QGraphicsRectItem):
@@ -100,7 +100,11 @@ class KeyBase(QGraphicsRectItem):
             val = ''
             if t == d.TEXT:
                 val = '{}<br/>use {}'.format(data[0], self.tr('clipboard') if data[1] else self.tr('system'))
-                
+            if t == d.SHORTCUT:
+                val = data[2]
+            else:
+                val = data
+            
             tooltip = u'<b>{}</b><br/>{}'.format(name, val)
             
             self.setToolTip(tooltip)
@@ -162,7 +166,7 @@ class KeyBase(QGraphicsRectItem):
         
     def setIcon(self, iconName, tooltip='', sizeCoef = 0.5, isPath=False):
         self.clear()
-        icon = QIcon(iconName) if isPath else icons.get(iconName) 
+        icon = icons.get(iconName) 
         size = int(self.view().keySize()*sizeCoef)
         pix = icon.pixmap(size, size)
         self.content = QGraphicsPixmapItem(pix, self)
