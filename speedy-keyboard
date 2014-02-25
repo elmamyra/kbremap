@@ -1,17 +1,21 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-from optparse import OptionParser
+import speedy_keyboard_app.main
 
-parser = OptionParser()
+# from optparse import OptionParser
+# 
+# parser = OptionParser()
+# 
+# parser.add_option("-d", "--deamon", help="launch the deamon", default=False, action="store_true")
+# parser.add_option("-q", "--quit", help="quit the deamon", default=False, action="store_true")
+# 
+# speedy_keyboard_editor.main(parser.parse_args())
 
-parser.add_option("-d", "--deamon", help="launch the deamon", default=False, action="store_true")
-
-
-if parser.parse_args()[0].deamon:
-    print 'deamon'
-else:    
-    from speedy_keyboard_editor import mainWindow
-    mainWindow.start()
+# if parser.parse_args()[0].deamon:
+#     from speedy_keyboard_editor import daemon
+# #     daemon.start()
+# else:    
+#     from speedy_keyboard_editor import mainWindow
 
 
 
