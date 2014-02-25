@@ -54,6 +54,38 @@ class MainWindow(QMainWindow):
         menu = QMenuBar()
         #file menu
         menuFile = menu.addMenu(self.tr("Fichier"))
+        
+        
+        #mapping menu
+#         menuMapping = menu.addMenu(self.tr("Mapping"))
+        self.newAction = act(self.tr("New..."), self.slotNew, Qt.Key_N, 'document-new')
+        menuFile.addAction(self.newAction)
+        
+        self.loadMenu = menuFile.addMenu(self.tr("Load"))
+        self.fillLoadMenu()
+        
+        self.saveAction = act(self.tr("Save"), self.slotSave, Qt.Key_S, 'document-save')
+        menuFile.addAction(self.saveAction)
+        
+        self.renameAction = act(self.tr("Rename..."), self.slotRename, Qt.Key_R, 'go-jump')
+        menuFile.addAction(self.renameAction)
+        
+        self.clearAction = act(self.tr("Clear"), self.slotClear, Qt.Key_C, 'edit-clear')
+        menuFile.addAction(self.clearAction)
+        
+        self.deleteAction = act(self.tr("Delete"), self.slotDelete, Qt.Key_D, 'edit-delete')
+        menuFile.addAction(self.deleteAction)
+        
+        menuFile.addSeparator()
+        
+        self.importAction = act(self.tr("Import..."), self.slotImport, Qt.Key_I, 'folder-open')
+        menuFile.addAction(self.importAction)
+        
+        self.exportAction = act(self.tr("Export..."), self.slotExport, Qt.Key_X, 'document-save-as')
+        menuFile.addAction(self.exportAction)
+        
+        menuFile.addSeparator()
+        
         keyboardModel = menuFile.addMenu(self.tr("keyboard model"))
         keyboardModel.triggered.connect(self.slotKeyboardModel)
         modList = ((self.tr('Generic 101'), 'generic_101'), 
@@ -69,36 +101,11 @@ class MainWindow(QMainWindow):
             modAct.setData(name)
             keyboardModel.addAction(modAct)
         
+        menuFile.addSeparator()
+        
         a = act(self.tr("Quit"), self.close, Qt.Key_Q, 'application-exit')
         menuFile.addAction(a)
         
-        #mapping menu
-        menuMapping = menu.addMenu(self.tr("Mapping"))
-        self.newAction = act(self.tr("New..."), self.slotNew, Qt.Key_N, 'document-new')
-        menuMapping.addAction(self.newAction)
-        
-        self.loadMenu = menuMapping.addMenu(self.tr("Load"))
-        self.fillLoadMenu()
-        
-        self.saveAction = act(self.tr("Save"), self.slotSave, Qt.Key_S, 'document-save')
-        menuMapping.addAction(self.saveAction)
-        
-        self.renameAction = act(self.tr("Rename..."), self.slotRename, Qt.Key_R, 'go-jump')
-        menuMapping.addAction(self.renameAction)
-        
-        self.clearAction = act(self.tr("Clear"), self.slotClear, Qt.Key_C, 'edit-clear')
-        menuMapping.addAction(self.clearAction)
-        
-        self.deleteAction = act(self.tr("Delete"), self.slotDelete, Qt.Key_D, 'edit-delete')
-        menuMapping.addAction(self.deleteAction)
-        
-        menuMapping.addSeparator()
-        
-        self.importAction = act(self.tr("Import..."), self.slotImport, Qt.Key_I, 'folder-open')
-        menuMapping.addAction(self.importAction)
-        
-        self.exportAction = act(self.tr("Export..."), self.slotExport, Qt.Key_X, 'document-save-as')
-        menuMapping.addAction(self.exportAction)
         
         self.setMenuBar(menu)
         self.enableAction()
