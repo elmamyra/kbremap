@@ -4,7 +4,6 @@ import info
 import random
 import util
 import xml.etree.ElementTree as ET
-import os
 
 
 class MappingItem:
@@ -49,7 +48,7 @@ class MappingItem:
                   'keycode': str(self.keycode), 
                   'modifiers': hex(self.modifiers),
                   'displayType': str(self.displayType),
-                  'displayValue': str(self.displayValue)
+                  'displayValue': unicode(self.displayValue)
                   }
         item = ET.Element('item', attrib)
         dataElt = ET.Element('data')
@@ -108,11 +107,15 @@ class Mapping:
         return None
     
     def load(self, name):
-        root = self.loadTree().getroot()
+        tree = self.loadTree()
+        root = tree.getroot()
         mappingElt = root.find("mapping[@name='{}']".format(name))
         if mappingElt is not None:
             self._name = name
             self._title = mappingElt.get('title')
+#             mappingElt.attrib.pop('isCurrent')
+#             mappingElt.set('isCurrent', 'true')
+#             self.write(tree)
             self._mappingItems = {}
             for itemElt in mappingElt:
                 item = MappingItem.fromXml(itemElt)
@@ -131,6 +134,9 @@ class Mapping:
         if mappingElt is not None:
             mappingElt.set('title', title)
             tree.write(util.configPath(), encoding="utf-8", xml_declaration=True)
+    
+    def write(self, tree):
+        tree.write(util.configPath(), encoding="utf-8", xml_declaration=True)
     
     def delete(self):
         if self._name:
