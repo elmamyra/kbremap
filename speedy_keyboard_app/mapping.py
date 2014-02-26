@@ -106,6 +106,16 @@ class Mapping:
                 return self._mappingItems.pop(k)
         return None
     
+    def loadCurrent(self):
+        tree = self.loadTree()
+        root = tree.getroot()
+        currentElt = root.find("mapping[@isCurrent]")
+        if currentElt is not None:
+            self.load(currentElt.get('name'))
+            return True
+        return False
+        
+    
     def load(self, name):
         tree = self.loadTree()
         root = tree.getroot()
@@ -113,9 +123,12 @@ class Mapping:
         if mappingElt is not None:
             self._name = name
             self._title = mappingElt.get('title')
+            currentElt = root.find("mapping[@isCurrent]")
+            if currentElt is not None:
+                currentElt.attrib.pop('isCurrent')
 #             mappingElt.attrib.pop('isCurrent')
-#             mappingElt.set('isCurrent', 'true')
-#             self.write(tree)
+            mappingElt.set('isCurrent', 'true')
+            self.write(tree)
             self._mappingItems = {}
             for itemElt in mappingElt:
                 item = MappingItem.fromXml(itemElt)
@@ -123,7 +136,7 @@ class Mapping:
             return True
         return False
     
-    def clear(self):
+    def clearItems(self):
         self._mappingItems = {}
     
     def rename(self, title):
@@ -158,7 +171,9 @@ class Mapping:
             oldMapping = root.find("mapping[@name='{}']".format(self._name))
             if oldMapping is not None:
                 root.remove(oldMapping)
-            root.append(self.toXml())
+            elt = self.toXml()
+            elt.set('isCurrent', 'true')
+            root.append(elt)
             indent(root)
             tree.write(util.configPath(), encoding="utf-8", xml_declaration=True)
     
@@ -195,12 +210,18 @@ class Mapping:
         self._name = getUniqueName()
         self._title = getUniqueTile(title)
     
+    def iterKey(self):
+        for key in self._mappingItems:
+            yield key
+    
     def __getitem__(self, key):
         return self._mappingItems.get(key)
     
     def __iter__(self):
         for item in self._mappingItems.values():
             yield item
+            
+    
 
 def isblank(s):
     """Return True if s is empty or whitespace only."""
