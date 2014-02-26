@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from Xlib.display import Display as XDisplay
 from Xlib import X, XK, error
+import Xlib
 from keysymdef import *
 from collections import namedtuple
 
@@ -59,6 +60,20 @@ class Display:
     def char2keysym(self, char):
         return self._char2keysym.get(char, -1)
     
+    def char2keycodes(self, char):
+        keysym = self.char2keysym(char)
+        keycodes = self.keysym2keycodes(keysym)
+        if keycodes:
+            keycode, modNum = keycodes[0]
+            mod = {0: 0,
+             1: X.ShiftMask,
+             4: X.Mod5Mask,
+             5: X.Mod5Mask | X.ShiftMask
+             }.get(modNum, -1)
+            if mod != -1:
+                return keycode, mod
+            
+        return None, None 
     
     def text2keysym(self, text):
         return [self.char2keysym(char) for char in unicode(text)]
@@ -172,12 +187,60 @@ class Display:
         if not self.isKeypadKey(keycode) and not modifiers & X.Mod2Mask:
             self._xroot.grab_key(keycode, modifiers | X.Mod2Mask, 0, X.GrabModeAsync, X.GrabModeAsync)
     
-    def nextKeyEvent(self):
-        event = self._xdisplay.next_event()
-        if event in (Display.KEY_PRESS, Display.KEY_RELEASE):
-            return keyEvent(event.type, event.detail, event.state)
+    def removeNumLock(self, keycode, modifiers):
+        if not self.isKeypadKey(keycode) and modifiers & X.Mod2Mask:
+            return modifiers ^ X.Mod2Mask
         
     
+    def nextKeyEvent(self, typ=KEY_PRESS):
+        if isinstance(typ, int):
+            typ = (typ,)
+        num = self._xdisplay.pending_events()
+        if num:
+            for _ in range(num):
+                event = self._xdisplay.next_event()
+                if event.type in typ:
+                    return keyEvent(event.type, event.detail, event.state)
+                self._xdisplay.allow_events(X.AsyncKeyboard, X.CurrentTime)
+        return None
+
+    
+    def sendText(self, text):
+        for char in text:
+            keycode, mod = self.char2keycodes(char)
+            self.pressKey(keycode, mod)
+            self.releaseKey(keycode, mod)
+        
+#         self._xdisplay.sync()
+            
+
+    
+    def pressKey(self, keycode, modifiers):
+        window = self._xdisplay.get_input_focus()._data["focus"]
+        evt = Xlib.protocol.event.KeyPress(  # @UndefinedVariable
+            time = X.CurrentTime,
+            root = self._xroot,
+            window = window,
+            same_screen = 0, child = Xlib.X.NONE,
+            root_x = 0, root_y = 0, event_x = 0, event_y = 0,
+            state = modifiers,
+            detail = keycode
+            )
+        window.send_event(evt, propagate = True)
+        
+    def releaseKey(self, keycode, modifiers):
+        window = self._xdisplay.get_input_focus()._data["focus"]
+        evt = Xlib.protocol.event.KeyRelease(  # @UndefinedVariable
+            time = X.CurrentTime,
+            root = self._xroot,
+            window = window,
+            same_screen = 0, child = Xlib.X.NONE,
+            root_x = 0, root_y = 0, event_x = 0, event_y = 0,
+            state = modifiers,
+            detail = keycode
+            )
+        window.send_event(evt, propagate = True)
+        
 #         self._xroot.grab_key(43, 0x14, 0, X.GrabModeAsync, X.GrabModeAsync)
 
         
