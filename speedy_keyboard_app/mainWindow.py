@@ -6,10 +6,14 @@ from PySide.QtGui import *  # @UnusedWildImport
 from PySide.QtCore import * # @UnusedWildImport
 from keyboardview import KeyboardView
 from dialogNew import DialogNew
+import network
 import mapping
 import icons
 import info
 import sys
+from subprocess import Popen
+
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -24,11 +28,31 @@ class MainWindow(QMainWindow):
         self.keyboardEditor.setModel(self.keyboardModel)
         layout.addWidget(self.keyboardEditor)
         self.setCentralWidget(centralWidget)
+        
+        self.setStatusBar(QStatusBar())
+        
+        self.network = network.Network(self)
         self.updateTitle()
 #         self.shift = True
+        if self.network.connect_():
+            self.daemonStartAction.setEnabled(False)
+        else:
+            self.daemonStopAction.setEnabled(False)
 
         self.keyboardEditor.keyModified.connect(self.slotModified)
+        self.network.connected.connect(self.slotConnected)
+        self.network.socketClosed.connect(self.slotSocketClosed)
         self.show()
+    
+    def slotConnected(self):
+        self.statusBar().showMessage(self.tr("The Daemon is running"), 3000)
+        self.daemonStartAction.setEnabled(False)
+        self.daemonStopAction.setEnabled(True)
+        
+    def slotSocketClosed(self):
+        self.statusBar().showMessage(self.tr("The Daemon is stopped"), 3000)
+        self.daemonStartAction.setEnabled(True)
+        self.daemonStopAction.setEnabled(False)
     
     def readSettings(self):
         settings = QSettings()
@@ -39,7 +63,8 @@ class MainWindow(QMainWindow):
             self.resize(1000, 260)
             
         self.keyboardModel = settings.value('keyboardModel', 'generic_105')
-        self._mapping = mapping.Mapping(settings.value('mapping', None))
+        self._mapping = mapping.Mapping()
+        self._mapping.loadCurrent()
 
     def setMenu(self):
         # action generator for actions added to search entry
@@ -55,9 +80,6 @@ class MainWindow(QMainWindow):
         #file menu
         menuFile = menu.addMenu(self.tr("Fichier"))
         
-        
-        #mapping menu
-#         menuMapping = menu.addMenu(self.tr("Mapping"))
         self.newAction = act(self.tr("New..."), self.slotNew, Qt.Key_N, 'document-new')
         menuFile.addAction(self.newAction)
         
@@ -106,6 +128,13 @@ class MainWindow(QMainWindow):
         a = act(self.tr("Quit"), self.close, Qt.Key_Q, 'application-exit')
         menuFile.addAction(a)
         
+        menuDaemon = menu.addMenu(self.tr("Daemon"))
+        
+        self.daemonStartAction = act(self.tr("Start"), self.slotDeamonStart, None, 'media-playback-start')
+        menuDaemon.addAction(self.daemonStartAction)
+        
+        self.daemonStopAction = act(self.tr("Stop"), self.slotDeamonStop, None, 'media-playback-stop')
+        menuDaemon.addAction(self.daemonStopAction)
         
         self.setMenuBar(menu)
         self.enableAction()
@@ -232,7 +261,7 @@ class MainWindow(QMainWindow):
             if resp == QMessageBox.No:
                 return
             
-            self._mapping.clear()
+            self._mapping.clearItems()
             self._isModified = True
             self.keyboardEditor.loadLayout()
             self.updateTitle()
@@ -258,7 +287,18 @@ class MainWindow(QMainWindow):
     def slotExport(self):
         print 'not implemented'
     
+    def slotDeamonStart(self):
+        Popen([sys.argv[0], '-d'])
+#         self.network.send('start')
+        
+    def slotDeamonStop(self):
+        self.network.send('quit')
+        
+    def slotDeamonPause(self):
+        self.network.send('pause')
+    
     def closeEvent(self, event):
+        self.network.stop()
         if self._isModified:
             resp = self.saveDialog()
             if resp == QMessageBox.Cancel:
