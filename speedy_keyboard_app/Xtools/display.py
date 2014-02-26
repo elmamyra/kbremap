@@ -10,6 +10,28 @@ from keysData import keyGroups
 
 keyEvent = namedtuple('keyEvent', ['type', 'keycode', 'modifiers'])
 
+DEAD_KEYS = {
+    'grave': XK_dead_grave,
+    'acute': XK_dead_acute,
+    'circumflex': XK_dead_circumflex,
+    'tilde': XK_dead_tilde,
+    'macron': XK_dead_macron,
+    'breve': XK_dead_breve,
+    'abovedot': XK_dead_abovedot,
+    'diaeresis': XK_dead_diaeresis,
+    'ring': XK_dead_abovering,
+    'doubleacute': XK_dead_doubleacute,
+    'caron': XK_dead_caron,
+    'cedilla': XK_dead_cedilla,
+    'ogonek': XK_dead_ogonek,
+    'belowdot': XK_dead_belowdot,
+    'hook': XK_dead_hook,
+    'horn': XK_dead_horn,
+    'stroke': XK_dead_stroke,
+    'schwa': XK_dead_small_schwa,
+    'SCHWA': XK_dead_capital_schwa,
+}
+
 class Display:
     CAPS_LOCK_DEFAULT, CAPS_LOCK_OLD = 0, 1
     KEY_PRESS = X.KeyPress
@@ -21,8 +43,10 @@ class Display:
         self._groups = []
         self._char2keysym = {}
         self._name2char = {}
+        self._name2keysym = {}
         self.caplockType = Display.CAPS_LOCK_DEFAULT
         self.addAllGroups()
+        
 
         
     def keycode2keysym(self, keycode, index=0):
@@ -65,18 +89,45 @@ class Display:
         keycodes = self.keysym2keycodes(keysym)
         if keycodes:
             keycode, modNum = keycodes[0]
-            mod = {0: 0,
+            mod = self.modNum2Mask(modNum)
+            if mod != -1:
+                return ((keycode, mod),)
+        else:
+            keyKeysym, deadKeysym = self.findWithDeadKey(keysym)
+            if keyKeysym != -1:
+                keyKeycodes = self.keysym2keycodes(keyKeysym)
+                deadKeycodes = self.keysym2keycodes(deadKeysym)
+                if keyKeycodes and deadKeycodes:
+                    keyKeycode, keyModNum = keyKeycodes[0]
+                    keyMod = self.modNum2Mask(keyModNum)
+                    deadKeycode, deadModNum = deadKeycodes[0]
+                    deadMod = self.modNum2Mask(deadModNum)
+                    if deadMod != -1 and keyMod != -1:
+                        return ((deadKeycode, deadMod), (keyKeycode, keyMod))
+                    
+                    
+        return ()
+    
+    def modNum2Mask(self, modNum):
+        return {0: 0,
              1: X.ShiftMask,
              4: X.Mod5Mask,
              5: X.Mod5Mask | X.ShiftMask
              }.get(modNum, -1)
-            if mod != -1:
-                return keycode, mod
-            
-        return None, None 
     
-    def text2keysym(self, text):
-        return [self.char2keysym(char) for char in unicode(text)]
+    def findWithDeadKey(self, keysym):
+        name = self.keysym2name(keysym)
+        if name:
+            for deadName, deadSym in sorted(DEAD_KEYS.items(), key=lambda x: len(x[0])):
+                if name.endswith(deadName):
+                    keyName = name[:-len(deadName)]
+                    keyKeysym = self._name2keysym.get(keyName)
+                    if keyKeysym:
+                        return keyKeysym, deadSym
+                    
+        return -1, -1
+#     def text2keysym(self, text):
+#         return [self.char2keysym(char) for char in unicode(text)]
     
     
     def charFromModifier(self, keycode, shift=False, numLock=False, capsLock=False, altGr=False):
@@ -151,6 +202,7 @@ class Display:
             if data.char:
                 self._char2keysym[data.char] = keysym
                 self._name2char[data.name] = data.char
+                self._name2keysym[data.name] = keysym
             self._keysyms[keysym] = data
         
         self._groups.append(group)
@@ -207,14 +259,15 @@ class Display:
     
     def sendText(self, text):
         for char in text:
-            keycode, mod = self.char2keycodes(char)
-            self.pressKey(keycode, mod)
-            self.releaseKey(keycode, mod)
+            print self.char2keycodes(char)
+#             keycode, mod = self.char2keycodes(char)
+            for keycode, mod in self.char2keycodes(char):
+                self.pressKey(keycode, mod)
+                self.releaseKey(keycode, mod)
         
 #         self._xdisplay.sync()
             
 
-    
     def pressKey(self, keycode, modifiers):
         window = self._xdisplay.get_input_focus()._data["focus"]
         evt = Xlib.protocol.event.KeyPress(  # @UndefinedVariable
