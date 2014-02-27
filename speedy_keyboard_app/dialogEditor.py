@@ -62,14 +62,14 @@ class DialogEditor(QDialog):
         self.setLayout(layout)
         
         
-        menuList = (d.TEXT, d.LAUNCHER, d.SHORTCUT)
+        menuList = (d.TEXT, d.COMMAND, d.SHORTCUT)
         #fill the menu
         for typ in menuList:
             title, iconName = d.DATA_TYPE[typ]
             self.typeChooser.addItem(icons.get(iconName), title, typ)
         
         self.typeToPage = {d.TEXT: PageText(),
-                           d.LAUNCHER: PageLauncher(self.iconChooser),
+                           d.COMMAND: PageCommand(self.iconChooser),
                            d.SHORTCUT: PageShortcut()
                         }
         

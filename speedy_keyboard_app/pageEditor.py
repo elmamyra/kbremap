@@ -61,7 +61,7 @@ class PageText(PageBase):
         return self.tr("You must enter a text to send.")
     
     
-class PageLauncher(PageBase):
+class PageCommand(PageBase):
     def __init__(self, iconChooser):
         PageBase.__init__(self)
         self.iconChooser = iconChooser
