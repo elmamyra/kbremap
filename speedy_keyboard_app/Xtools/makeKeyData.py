@@ -138,5 +138,4 @@ with open(pathDef) as f:
                     
                     
         out.write("}")
-#                print group.lower()
         
