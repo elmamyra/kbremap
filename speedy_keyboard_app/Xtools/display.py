@@ -238,6 +238,11 @@ class Display:
         self._xroot.grab_key(keycode, modifiers, 0, X.GrabModeAsync, X.GrabModeAsync)
         if not self.isKeypadKey(keycode) and not modifiers & X.Mod2Mask:
             self._xroot.grab_key(keycode, modifiers | X.Mod2Mask, 0, X.GrabModeAsync, X.GrabModeAsync)
+            
+    def ungrabKey(self, keycode, modifiers):
+        self._xroot.ungrab_key(keycode, modifiers)
+        if not self.isKeypadKey(keycode) and not modifiers & X.Mod2Mask:
+            self._xroot.ungrab_key(keycode, modifiers | X.Mod2Mask)
     
     def removeNumLock(self, keycode, modifiers):
         if not self.isKeypadKey(keycode) and modifiers & X.Mod2Mask:
@@ -259,14 +264,14 @@ class Display:
     
     def sendText(self, text):
         for char in text:
-            print self.char2keycodes(char)
-#             keycode, mod = self.char2keycodes(char)
             for keycode, mod in self.char2keycodes(char):
-                self.pressKey(keycode, mod)
-                self.releaseKey(keycode, mod)
-        
-#         self._xdisplay.sync()
-            
+                self.sendKeycode(keycode, mod)
+                
+                
+    def sendKeycode(self, keycode, mod):
+        self.pressKey(keycode, mod)
+        self.releaseKey(keycode, mod)
+    
 
     def pressKey(self, keycode, modifiers):
         window = self._xdisplay.get_input_focus()._data["focus"]
@@ -294,7 +299,6 @@ class Display:
             )
         window.send_event(evt, propagate = True)
         
-#         self._xroot.grab_key(43, 0x14, 0, X.GrabModeAsync, X.GrabModeAsync)
 
         
 
