@@ -10,12 +10,13 @@ import network
 import mapping
 import icons
 import info
-import sys
+import sys, os
 from subprocess import Popen
-
-
+import __main__
+print __main__.__file__
 
 class MainWindow(QMainWindow):
+    updated = Signal()
     def __init__(self):
         super(MainWindow, self).__init__()
         self._isModified = False
@@ -32,27 +33,38 @@ class MainWindow(QMainWindow):
         self.setStatusBar(QStatusBar())
         
         self.network = network.Network(self)
+        
+        
         self.updateTitle()
 #         self.shift = True
-        if self.network.connect_():
-            self.daemonStartAction.setEnabled(False)
-        else:
-            self.daemonStopAction.setEnabled(False)
+        self.daemonPauseAction.setEnabled(False)
+        self.daemonStopAction.setEnabled(False)
 
         self.keyboardEditor.keyModified.connect(self.slotModified)
-        self.network.connected.connect(self.slotConnected)
+        self.network.connected.connect(self.slotSocketConnected)
         self.network.socketClosed.connect(self.slotSocketClosed)
+        self.network.socketPaused.connect(self.slotSocketPaused)
+        self.network.socketResumed.connect(self.slotSocketResumed)
+        self.network.connect_()
         self.show()
     
-    def slotConnected(self):
-        self.statusBar().showMessage(self.tr("The Daemon is running"), 3000)
-        self.daemonStartAction.setEnabled(False)
-        self.daemonStopAction.setEnabled(True)
+    def slotSocketConnected(self):
+        self.applyEnabled(False, True, True, self.tr("The Daemon is running"))
         
     def slotSocketClosed(self):
-        self.statusBar().showMessage(self.tr("The Daemon is stopped"), 3000)
-        self.daemonStartAction.setEnabled(True)
-        self.daemonStopAction.setEnabled(False)
+        self.applyEnabled(True, False, False, self.tr("The Daemon is stopped"))
+        
+    def slotSocketPaused(self):
+        self.applyEnabled(True, True, False, self.tr("The Daemon is paused"))
+        
+    def slotSocketResumed(self):
+        self.applyEnabled(False, True, True, self.tr("The Daemon resumed"))
+        
+    def applyEnabled(self, start, stop, pause, msg):
+        self.statusBar().showMessage(msg, 3000)
+        self.daemonStartAction.setEnabled(start)
+        self.daemonStopAction.setEnabled(stop)
+        self.daemonPauseAction.setEnabled(pause)
     
     def readSettings(self):
         settings = QSettings()
@@ -133,6 +145,9 @@ class MainWindow(QMainWindow):
         self.daemonStartAction = act(self.tr("Start"), self.slotDeamonStart, None, 'media-playback-start')
         menuDaemon.addAction(self.daemonStartAction)
         
+        self.daemonPauseAction = act(self.tr("Pause"), self.slotDeamonPause, None, 'media-playback-pause')
+        menuDaemon.addAction(self.daemonPauseAction)
+        
         self.daemonStopAction = act(self.tr("Stop"), self.slotDeamonStop, None, 'media-playback-stop')
         menuDaemon.addAction(self.daemonStopAction)
         
@@ -196,6 +211,7 @@ class MainWindow(QMainWindow):
             self.keyboardEditor.loadLayout()
             self.enableAction()
             self.fillLoadMenu()
+            self.updated.emit()
         
     def load(self, name):
         self._mapping.load(name)
@@ -203,6 +219,7 @@ class MainWindow(QMainWindow):
         self.enableAction()
         self.updateTitle()
         self.keyboardEditor.loadLayout()
+        
     
     def saveDialog(self):
         title = self.tr("Close mapping")
@@ -227,6 +244,7 @@ class MainWindow(QMainWindow):
                 self.saveAction.trigger()
         
         self.load(act.data())
+        self.updated.emit()
     
     
     def slotSave(self):
@@ -238,8 +256,10 @@ class MainWindow(QMainWindow):
                 self._mapping.setName(mapping.getUniqueName())
                 self._mapping.setTitle(title)
                 self.save()
+                self.updated.emit()
         else:
             self.save()
+            self.updated.emit()
     
     def save(self):
         self._mapping.save()
@@ -262,6 +282,7 @@ class MainWindow(QMainWindow):
                 return
             
             self._mapping.clearItems()
+            self.updated.emit()
             self._isModified = True
             self.keyboardEditor.loadLayout()
             self.updateTitle()
@@ -280,22 +301,27 @@ class MainWindow(QMainWindow):
             self.updateTitle()
             self.keyboardEditor.loadLayout()
             self.fillLoadMenu()
+            self.updated.emit()
             
     def slotImport(self):
         print 'not implemented'
+        self.testEvent.emit()
         
     def slotExport(self):
         print 'not implemented'
     
     def slotDeamonStart(self):
-        Popen([sys.argv[0], '-d'])
-#         self.network.send('start')
-        
+        if self.network.isConnected():
+            self.network.send('resume')
+        else:
+            Popen([__main__.__file__, '-d'], close_fds=True)
+            
     def slotDeamonStop(self):
         self.network.send('quit')
         
     def slotDeamonPause(self):
         self.network.send('pause')
+        
     
     def closeEvent(self, event):
         self.network.stop()
@@ -306,6 +332,7 @@ class MainWindow(QMainWindow):
             
             if resp == QMessageBox.Save:
                 self.saveAction.trigger()
+                self.updated.emit()
         
         settings = QSettings()
         settings.setValue("geometry", self.saveGeometry())
