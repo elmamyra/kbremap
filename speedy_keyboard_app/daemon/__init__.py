@@ -1,29 +1,48 @@
 import socket
 import select
-# from ..Xtools import display
 from .. import  data as d
 from handler import Handler
 import threading, sys
 import Queue
 import time
+from subprocess import Popen, call
+
+class Signal(object):
+    def __init__(self):
+        self._slots = []
+        
+    
+    def connect(self, slot):
+        self._slots.append(slot)
+    
+    def emit(self, *args):
+        for slot in self._slots:
+            slot(*args)
+
+
 
 class Daemon(object):
     def __init__(self):
-        self.conns = []
-        self._isAlive = False
+        self.input = []
+        self.running = False
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.handler = Handler()
-        self.mainSocket = None
+        self.handler = Handler(self)
+        self._state = 'running'
 
     
     def connect(self, arg=None):
         try:
             self.socket.bind((socket.gethostname(), d.PORT))
             self.socket.listen(3)
-            self.start()
-        except socket.error:
-            print 'The daemon is already started'
+            self.running = True
+            self.input = [self.socket]
+            self.handler.start()
+            th = threading.Thread(target=self.start)
+            th.start()
+        except socket.error, msg:
+            print 'The daemon is already started', msg
+    
     
     @staticmethod
     def quit():
@@ -35,62 +54,48 @@ class Daemon(object):
             print "The daemon is already closed"
 
 
-    def close(self):
-        self._isAlive = False
-
     def start(self):
-        ct = None
-        while True:
-            try:
-                client, addr = self.socket.accept()
-                data = client.recv(128)
-                if data == 'quit':
-                    if ct:
-                        ct.stop()
-                    self.handler.stop()
-                    break
-                elif data == 'mainwindow':
-                    self.mainSocket = client
-                    ct = ProcessThread(client)
-                    ct.start()
-            except KeyboardInterrupt:
-                print "Stop."
-                break
-            except socket.error, msg:
-                print "Socket error! %s" % msg
-                break
-            
-
-    
-class ProcessThread(threading.Thread):
-    def __init__(self, conn):
-        threading.Thread.__init__(self)
-        self.conn = conn
-        self.conn.setblocking(0)
-        
-        self.running = True
-        self.q = Queue.Queue()
-        
-    def add(self, data):
-        self.q.put(data)
-        
-    def stop(self):
-        self.running = False
-     
-     
-    def run(self):
         while self.running:
-            try:
-                msg = self.conn.recv(128)
-                if msg == 'quit':
-                    Daemon.quit()
-                    break
-                    
-            except Exception as e:
-                pass
-            time.sleep(0.05)
-        self.conn.close()  
+            inputready, outputready, exceptready = select.select(self.input,[],[])
+            for s in inputready: 
+                if s == self.socket:
+                    client, address = self.socket.accept()
+                    self.input.append(client)
+                else:
+                    # handle all other sockets
+                    data = s.recv(128)
+                    print 'data', data
+                    if not data:
+                        s.close()
+                        with open('log.txt', 'w') as f:
+                            f.write('client server close')
+                        print 'client server close'
+                        self.input.remove(s)
+                    elif data == 'quit':
+                        print 'quit'
+#                         self.queue.put('quit')
+                        self.running = False
+                        self.handler.stop()
+                    elif data == 'update':
+                        self.handler.update()
+                    elif data == 'resume':
+                        if self._state == 'paused':
+                            self.handler.grabKeys()
+                            self._state = 'running'
+                            s.send('resume')
+                        
+                    elif data == 'pause':
+                        if self._state == 'running':
+                            self.handler.ungrabKeys()
+                            self._state = 'paused'
+                            s.send('pause')
+                        
+                        
+                        
 
+        for client in self.input:
+            client.close()
+            
 
 def start():
     daemon = Daemon()
