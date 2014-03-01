@@ -54,7 +54,10 @@ class Network(QObject):
     
     def send(self, msg):
         if self._isConnected:
-            self.socket.send(msg)
+            try:
+                self.socket.send(msg)
+            except socket.error, msg:
+                print 'network send: ' + msg
             
     def stop(self):
         if self.threadRecv:
