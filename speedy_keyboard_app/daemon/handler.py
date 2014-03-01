@@ -1,8 +1,8 @@
 from ..Xtools import display
 from .. import mapping
 import threading
-from subprocess import Popen
-import time, os
+from subprocess import Popen, PIPE
+import time, os, sys
 from .. import data as d
 
 class Signal(object):
@@ -25,7 +25,8 @@ class Handler(object):
         self.display = display.Display()
         self.mapping = mapping.Mapping()
         self.running = True
-    
+        self.display.resetMapping()
+        
     def update(self):
         self.ungrabKeys()
         self.mapping = mapping.Mapping()
@@ -39,15 +40,22 @@ class Handler(object):
         th.start()
     
     def grabKeys(self):
-        for keycode, modifiers in self.mapping.iterKey():
-            self.display.grabKey(keycode, modifiers)
+        for item in self.mapping:
+            if item.type == d.REMAPPING:
+                self.display.remapKey(item.keycode, item.modifiers, item.data[0])
+            else:
+                self.display.grabKey(item.keycode, item.modifiers)
             
     def ungrabKeys(self):
         for keycode, modifiers in self.mapping.iterKey():
             self.display.ungrabKey(keycode, modifiers)
             
+        self.display.resetMapping()
+    
+
     def stop(self):
         self.running = False
+        self.display.resetMapping()
     
     def eventThread(self):
         while self.running:
@@ -55,7 +63,7 @@ class Handler(object):
             if event:
                 item = self.mapping.getItem(event.keycode, event.modifiers)
                 if not item:
-                    modifiers = self.display.removeNumLock(event.keycode, event.modifiers)
+                    modifiers = self.display.removeNumLockMask(event.keycode, event.modifiers)
                     item = self.mapping.getItem(event.keycode, modifiers)
                 if item:
                     if item.type == d.TEXT:
