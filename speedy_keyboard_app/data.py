@@ -1,39 +1,12 @@
 from PySide.QtGui import QColor
 from PySide.QtCore import  QObject
-from Xlib import X
 from collections import namedtuple
 
-ALT, CTRL, SHIFT, SUPER, NUM_LOCK, CAPS_LOCK, ALT_GR = range(7)
-
-TEXT, COMMAND, SHORTCUT = range(3)
+TEXT, COMMAND, SHORTCUT, REMAPPING = range(4)
 
 GR_TEXT, GR_ICON = range(2)
 
 PORT = 22347
-
-MODIFIER_MASK = {   
-    ALT: X.Mod1Mask,
-    CTRL: X.ControlMask,
-    SHIFT: X.ShiftMask,
-    SUPER: X.Mod4Mask,
-    NUM_LOCK: X.Mod2Mask,
-    CAPS_LOCK: X.LockMask,
-    ALT_GR: X.Mod5Mask,
-}
-
-MODIFIER_KEYCODES = {
-    64: ALT,
-    37: CTRL,
-    105: CTRL,
-    50: SHIFT,
-    62: SHIFT,
-    133: SUPER,
-    134: SUPER,
-    77: NUM_LOCK,
-    66: CAPS_LOCK,
-    108: ALT_GR
-}
-
 
 t = namedtuple('t', 'title icon')
 
@@ -41,7 +14,7 @@ DATA_TYPE = {
             TEXT: t(QObject().tr("Text"), 'text'),
             COMMAND: t(QObject().tr("Command"), 'utilities-terminal'),
             SHORTCUT: t(QObject().tr("Shortcut"), 'shortcuts'),
-            
+            REMAPPING: t(QObject().tr("Remapping"), 'keys'),
             }
 
 KEYBOARD_COLOR = {
