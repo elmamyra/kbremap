@@ -13,6 +13,7 @@ import data as d
 import icons
 
 
+
 class TextLineEdit(QLineEdit):
     focusIn = Signal()
     def __init__(self, parent=None):
@@ -25,6 +26,8 @@ class TextLineEdit(QLineEdit):
 
 
 class DialogEditor(QDialog):
+    textEvent = Signal(unicode)
+    iconEvent = Signal(str)
     def __init__(self, parent, mItem=None):
         super(DialogEditor, self).__init__(parent)
         self.setWindowTitle(self.tr("key editor"))
@@ -62,15 +65,16 @@ class DialogEditor(QDialog):
         self.setLayout(layout)
         
         
-        menuList = (d.TEXT, d.COMMAND, d.SHORTCUT)
+        menuList = (d.TEXT, d.COMMAND, d.SHORTCUT, d.REMAPPING)
         #fill the menu
         for typ in menuList:
             title, iconName = d.DATA_TYPE[typ]
             self.typeChooser.addItem(icons.get(iconName), title, typ)
         
         self.typeToPage = {d.TEXT: PageText(),
-                           d.COMMAND: PageCommand(self.iconChooser),
-                           d.SHORTCUT: PageShortcut()
+                           d.COMMAND: PageCommand(self),
+                           d.SHORTCUT: PageShortcut(),
+                           d.REMAPPING: PageRemapping(self),
                         }
         
         for page in self.typeToPage.values():
@@ -88,6 +92,8 @@ class DialogEditor(QDialog):
         self.iconChooser.iconChanged.connect(self.radioIcon.click)
         self.textLineEdit.focusIn.connect(self.radioText.click)
         self.typeChooser.activated.connect(self.slotTypeChanged)
+        self.textEvent.connect(self.slotTextEvent)
+        self.iconEvent.connect(self.slotIconEvent)
     
     def load(self, mItem):
         typ = mItem.type
@@ -134,5 +140,12 @@ class DialogEditor(QDialog):
         self.stackedWid.setCurrentWidget(page)
         page.start()
         
+    def slotTextEvent(self, text):
+        self.textLineEdit.setText(text)
+        self.radioText.setChecked(True)
+        
+    def slotIconEvent(self, iconFile):
+        self.iconChooser.setIcon(iconFile)
+        self.radioIcon.setChecked(True)
         
         
