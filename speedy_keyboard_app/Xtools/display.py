@@ -1,239 +1,215 @@
 # -*- coding: utf-8 -*-
 from Xlib.display import Display as XDisplay
-from Xlib import X, XK, error
+from Xlib import X, error
 import Xlib
-from keysymdef import *
+# from keysymdef import *
 from collections import namedtuple
-
-from keysData import keyGroups
+from gtk import gdk
+# from speedy_keyboard_app.Xtools.keysDataback import keyGroups
+from subprocess import Popen, PIPE
 
 
 keyEvent = namedtuple('keyEvent', ['type', 'keycode', 'modifiers'])
 
-DEAD_KEYS = {
-    'grave': XK_dead_grave,
-    'acute': XK_dead_acute,
-    'circumflex': XK_dead_circumflex,
-    'tilde': XK_dead_tilde,
-    'macron': XK_dead_macron,
-    'breve': XK_dead_breve,
-    'abovedot': XK_dead_abovedot,
-    'diaeresis': XK_dead_diaeresis,
-    'ring': XK_dead_abovering,
-    'doubleacute': XK_dead_doubleacute,
-    'caron': XK_dead_caron,
-    'cedilla': XK_dead_cedilla,
-    'ogonek': XK_dead_ogonek,
-    'belowdot': XK_dead_belowdot,
-    'hook': XK_dead_hook,
-    'horn': XK_dead_horn,
-    'stroke': XK_dead_stroke,
-    'schwa': XK_dead_small_schwa,
-    'SCHWA': XK_dead_capital_schwa,
-}
+DEAD_KEYS = (
+    'grave',
+    'acute',
+    'circumflex',
+    'tilde',
+    'macron',
+    'breve',
+    'abovedot',
+    'diaeresis',
+    'ring',
+    'doubleacute',
+    'caron',
+    'cedilla',
+    'ogonek',
+    'belowdot',
+    'hook',
+    'horn',
+    'stroke',
+    'schwa',
+    'SCHWA',
+)
+
+LEVEL_MOD = (0, X.ShiftMask, X.Mod5Mask, X.ShiftMask | X.Mod5Mask)
 
 class Display:
-    CAPS_LOCK_DEFAULT, CAPS_LOCK_OLD = 0, 1
     KEY_PRESS = X.KeyPress
     KEY_RELEASE = X.KeyRelease
     def __init__(self):
         self._xdisplay = XDisplay()
         self._xroot = self._xdisplay.screen().root
-        self._keysyms = {}
-        self._groups = []
-        self._char2keysym = {}
-        self._name2char = {}
-        self._name2keysym = {}
-        self.caplockType = Display.CAPS_LOCK_DEFAULT
-        self.addAllGroups()
+        self._group = 0
+        self.loadModifiers()
+        self._keymap = gdk.keymap_get_default()  # @UndefinedVariable
         
-
-        
-    def keycode2keysym(self, keycode, index=0):
-        return self._xdisplay.keycode_to_keysym(keycode, index)
+    def loadModifiers(self):
+        self._modifiers = []
+        self._modifierList = []
+        for key in self._xdisplay.get_modifier_mapping():
+            li = [k for k in key if k]
+            #for altgr key
+            if 92 in li:
+                li.append(108)
+            self._modifierList += li
+            self._modifiers.append(li)
     
-    def keycode2char(self, keycode, index):
-        keysym = self.keycode2keysym(keycode, index)
-        return self.keysym2char(keysym, index)
     
-    def keysym2char(self, keysym, index=0):
-        data = self._keysyms.get(keysym)
-        if data:
-            if data.char:
-                return data.char
+    def remapKey(self, keycode, modMask, newKeysym):
+        oldKeysym = self.entry2name(keycode, modMask)
+        process = Popen('xmodmap -e "keysym {} = {}"'.format(oldKeysym, newKeysym), shell=True, stdout=PIPE, stderr=PIPE)
+        for line in process.stderr:
+            if not line:
+                break
+            print 'remapKey error:', line
+    
+    def resetMapping(self):
+        try:
+            process = Popen('setxkbmap -print -verbose 7'.split(), stdout=PIPE, stderr=PIPE)
+        except OSError:
+            print 'resetMappig error: install setxkbmap'
+            
+        layout = variant = ''
+        for line in process.stderr:
+            if line:
+                print 'resetMappig error:', line
             else:
-                return data.name
-        else:
-            return self._tryFindChar(keysym)
-        return ''
+                break
+        
+        for line in process.stdout:
+            line = line.rstrip()
+            if line == '':
+                break
+            
+            if line.startswith('layout:'):
+                layout = line.split()[1]
+            elif line.startswith('variant:'):
+                variant = line.split()[1]
+                break
+                
+        command = ['setxkbmap']
+        if layout:
+            command += ['-layout', layout]
+                   
+        if variant:
+            command += ['-variant', variant]
+        if layout or command:
+            try:
+                process = Popen(command, stdout=PIPE, stderr=PIPE)
+            except:
+                print 'resetMappig error: command: {}'.format(' '.join(command))
     
-    def keycode2keysyms(self, keycode):
-        return self._xdisplay.get_keyboard_mapping(keycode, 1)
+    def isModifier(self, keycode):
+        return keycode in self._modifierList
     
-    def keysym2keycodes(self, keysym):
-        return self._xdisplay.keysym_to_keycodes(keysym)
+    def getModMask(self, keycode):
+        for i, mods in enumerate(self._modifiers):
+            if keycode in mods:
+                return 2**i
+            
+        return 0
     
-    def keysym2name(self, keysym):
-        if keysym in self._keysyms:
-            return self._keysyms[keysym].name
-        return ''
+    def modifiersKeycodeList(self):
+        return self._modifierList
     
-    def name2Char(self, name):
-        return self._name2char.get(name, '')
+    def numMask(self):
+        return X.Mod2Mask
     
-    def char2keysym(self, char):
-        return self._char2keysym.get(char, -1)
+    def keycode2char(self, keycode, mods, group=0):
+        char = ''
+        name = ''
+        info = self._keymap.translate_keyboard_state(keycode, mods, group)
+        if info:
+            keysym = info[0]
+            char = gdk.keyval_to_unicode(keysym)  # @UndefinedVariable
+            if char:
+                char = unichr(char)
+            name = gdk.keyval_name(keysym)  # @UndefinedVariable
+            
+        return char or '', name or ''
+    
+    def removeNumLockMask(self, keycode, mod):
+        if not self.isKeypadKey(keycode) and mod & X.Mod2Mask:
+            return mod ^ X.Mod2Mask
+        
+        return mod
+     
+    def entry2keysym(self, keycode, modMask):
+        info = self._keymap.translate_keyboard_state(keycode, modMask, self._group)
+        if info:
+            return info[0]
+        
+        return None
+        
+    def entry2name(self, keycode, modMask):
+        keysym = self.entry2keysym(keycode, modMask)
+        if keysym is not None:
+            return gdk.keyval_name(keysym)  # @UndefinedVariable
+        
+        return None
+    
+    def keysym2entry(self, keysym):
+        infos = self._keymap.get_entries_for_keyval(keysym)
+        if infos:
+            for info in infos:
+                if info[1] == 0:
+                    keycode = info[0]
+                    mod = LEVEL_MOD[info[2]]
+                    return keycode, mod
+            
+        return None
     
     def char2keycodes(self, char):
-        keysym = self.char2keysym(char)
-        keycodes = self.keysym2keycodes(keysym)
-        if keycodes:
-            keycode, modNum = keycodes[0]
-            mod = self.modNum2Mask(modNum)
-            if mod != -1:
-                return ((keycode, mod),)
-        else:
-            keyKeysym, deadKeysym = self.findWithDeadKey(keysym)
-            if keyKeysym != -1:
-                keyKeycodes = self.keysym2keycodes(keyKeysym)
-                deadKeycodes = self.keysym2keycodes(deadKeysym)
+        resp = ()
+        keysym = gdk.unicode_to_keyval(ord(char))  # @UndefinedVariable
+        if keysym:
+            entry = self.keysym2entry(keysym)
+            if entry:
+                keycode, mod = entry
+                resp = ((keycode, mod), )
+        
+        if not resp:
+            deadKeys = self.findWithDeadKey(keysym)
+            if deadKeys:
+                keyKeysym, deadKeysym = deadKeys
+                keyKeycodes = self.keysym2entry(keyKeysym)
+                deadKeycodes = self.keysym2entry(deadKeysym)
                 if keyKeycodes and deadKeycodes:
-                    keyKeycode, keyModNum = keyKeycodes[0]
-                    keyMod = self.modNum2Mask(keyModNum)
-                    deadKeycode, deadModNum = deadKeycodes[0]
-                    deadMod = self.modNum2Mask(deadModNum)
-                    if deadMod != -1 and keyMod != -1:
-                        return ((deadKeycode, deadMod), (keyKeycode, keyMod))
-                    
-                    
-        return ()
-    
-    def modNum2Mask(self, modNum):
-        return {0: 0,
-             1: X.ShiftMask,
-             4: X.Mod5Mask,
-             5: X.Mod5Mask | X.ShiftMask
-             }.get(modNum, -1)
+                    keyKeycode, keyMod = keyKeycodes
+                    deadKeycode, deadMod = deadKeycodes
+                    resp = ((deadKeycode, deadMod), (keyKeycode, keyMod))
+              
+        return resp
     
     def findWithDeadKey(self, keysym):
-        name = self.keysym2name(keysym)
-        if name:
-            for deadName, deadSym in sorted(DEAD_KEYS.items(), key=lambda x: len(x[0])):
-                if name.endswith(deadName):
-                    keyName = name[:-len(deadName)]
-                    keyKeysym = self._name2keysym.get(keyName)
-                    if keyKeysym:
-                        return keyKeysym, deadSym
-                    
-        return -1, -1
-#     def text2keysym(self, text):
-#         return [self.char2keysym(char) for char in unicode(text)]
-    
-    
-    def charFromModifier(self, keycode, shift=False, numLock=False, capsLock=False, altGr=False):
-        char = ''
-        groupStart = 4 if altGr else 0
-        if not self.keycode2keysym(keycode, 1):
-            return self.keycode2char(keycode, 0)
-        elif numLock and self.isKeypadKeycode(keycode, groupStart+1):
-            if (shift and capsLock) or (shift and not capsLock):
-                groupId = 0
-            elif (not shift and capsLock) or (not shift and not capsLock):
-                groupId = 1
-            char = self.keycode2char(keycode, groupStart+groupId)
-        
-        elif not shift and not capsLock:
-            char = self.keycode2char(keycode, groupStart)
+        name = gdk.keyval_name(keysym)  # @UndefinedVariable
+        for deadName in DEAD_KEYS:
+            if name.endswith(deadName):
+                keyName = name[:-len(deadName)]
+                deadName = {'ring': 'abovering', 
+                           'schwa': 'small_schwa', 
+                           'SCHWA': 'capital_schwa'}.get(deadName, deadName)
+                deadName = 'dead_' + deadName
+                keyKeysym = gdk.keyval_from_name(keyName)  # @UndefinedVariable
+                deadSym = gdk.keyval_from_name(deadName)  # @UndefinedVariable
+                return keyKeysym, deadSym
+        return None
             
-        elif not shift and capsLock:
-            char1 = self.keycode2char(keycode, groupStart)
-            char2 = self.keycode2char(keycode, groupStart+1)
-            if self.caplockType == Display.CAPS_LOCK_DEFAULT:
-                if char2.isdigit():
-                    char = char2
-                elif char1.islower():
-                    char = char1.upper()
-                else:
-                    char = char1
-            elif self.caplockType == Display.CAPS_LOCK_OLD:
-                char = char1
-                if char.islower():
-                    char = char.upper()
-                    
-                
-        elif shift and capsLock:
-            char1 = self.keycode2char(keycode, groupStart)
-            char2 = self.keycode2char(keycode, groupStart+1)
-            if self.caplockType == Display.CAPS_LOCK_DEFAULT:
-                if char2.isdigit() or char1.islower():
-                    char = char1
-                else:
-                    char = char2
-            elif self.caplockType == Display.CAPS_LOCK_OLD:
-                char = self.keycode2char(keycode, groupStart+1)
-                if char.islower():
-                    char = char.upper()
-                
-        elif shift:
-            char = self.keycode2char(keycode, groupStart+1)
-                
-        return char 
-    
-    
-    def isKeypadKeycode(self, keycode, index):
-        keysym = self.keycode2keysym(keycode, index)
-        return 0xFF80 <= keysym <= 0xFFBD \
-                or 0x11000000 <= keysym <= 0x1100FFFF
-    
     
     def isKeypadKey(self, keycode):
-        return keycode in (106, 163, 79, 80, 81, 83, 84, 85, 87, 88, 89,  90, 91, 82, 86, 104)
+        entry = self._keymap.get_entries_for_keycode(keycode)
+        if entry:
+            for info in entry:
+                if info[2] == self._group:
+                    name = gdk.keyval_name(info[0])  # @UndefinedVariable
+                    if name and name.startswith('KP_'):
+                        return True
+                    
+        return False
     
-    def _tryFindChar(self, keysym):
-        hexa = hex(keysym)
-        if hexa[-1] == 'L':
-            hexa = hexa[:-1]
-        if len(hexa) == 9 and hexa[:5] == "0x100":
-            return unichr(int(hexa[5:], 16))
-        return ''
-    
-    def addGroup(self, group):
-        for keysym, data in keyGroups[group].items():
-            if data.char:
-                self._char2keysym[data.char] = keysym
-                self._name2char[data.name] = data.char
-                self._name2keysym[data.name] = keysym
-            self._keysyms[keysym] = data
         
-        self._groups.append(group)
-    
-    def addGroups(self, groups):
-        for group in groups:
-            self.addGroup(group)
-    
-    def addAllGroups(self, exceptGroup=[]):
-        self._groups = []
-        self._char2keysym = {}
-        self._name2char = {}
-        for groupName in keyGroups:
-            if groupName in exceptGroup:
-                continue
-            self.addGroup(groupName)
-            
-    def removeGroup(self, group):
-        self._groups.remove(group)
-        groups = self._keysymGroups[:]
-        self._keysymGroups = []
-        self._char2keysym = {}
-        self._name2char = {}
-        self.addGroups(groups)
-        
-    def groups(self):
-        return self._groups
-    
-    def hasGroup(self, group):
-        return group in self._groups
-    
     def grabKey(self, keycode, modifiers):
         self._xroot.grab_key(keycode, modifiers, 0, X.GrabModeAsync, X.GrabModeAsync)
         if not self.isKeypadKey(keycode) and not modifiers & X.Mod2Mask:
@@ -243,11 +219,6 @@ class Display:
         self._xroot.ungrab_key(keycode, modifiers)
         if not self.isKeypadKey(keycode) and not modifiers & X.Mod2Mask:
             self._xroot.ungrab_key(keycode, modifiers | X.Mod2Mask)
-    
-    def removeNumLock(self, keycode, modifiers):
-        if not self.isKeypadKey(keycode) and modifiers & X.Mod2Mask:
-            return modifiers ^ X.Mod2Mask
-        
     
     def nextKeyEvent(self, typ=KEY_PRESS):
         if isinstance(typ, int):
@@ -272,8 +243,7 @@ class Display:
         self.pressKey(keycode, mod)
         self.releaseKey(keycode, mod)
     
-
-    def pressKey(self, keycode, modifiers):
+    def pressKey(self, keycode, modMask):
         window = self._xdisplay.get_input_focus()._data["focus"]
         evt = Xlib.protocol.event.KeyPress(  # @UndefinedVariable
             time = X.CurrentTime,
@@ -281,12 +251,12 @@ class Display:
             window = window,
             same_screen = 0, child = Xlib.X.NONE,
             root_x = 0, root_y = 0, event_x = 0, event_y = 0,
-            state = modifiers,
+            state = modMask,
             detail = keycode
             )
         window.send_event(evt, propagate = True)
         
-    def releaseKey(self, keycode, modifiers):
+    def releaseKey(self, keycode, modMask):
         window = self._xdisplay.get_input_focus()._data["focus"]
         evt = Xlib.protocol.event.KeyRelease(  # @UndefinedVariable
             time = X.CurrentTime,
@@ -294,13 +264,23 @@ class Display:
             window = window,
             same_screen = 0, child = Xlib.X.NONE,
             root_x = 0, root_y = 0, event_x = 0, event_y = 0,
-            state = modifiers,
+            state = modMask,
             detail = keycode
             )
         window.send_event(evt, propagate = True)
         
-
         
+def name2unicode(name):
+    keysym = gdk.keyval_from_name(name)  # @UndefinedVariable
+    return gdk.keyval_to_unicode(keysym)  # @UndefinedVariable
+    
+
+def name2Char(name):
+    char = name2unicode(name)
+    if char:
+        char = unichr(char)
+        
+    return char or ''
 
         
 
