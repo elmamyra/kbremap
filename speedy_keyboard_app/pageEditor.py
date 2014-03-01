@@ -2,6 +2,7 @@
 from PySide.QtGui import *
 from PySide.QtCore import Qt
 from widgets import ShortcutWidget
+from speedy_keyboard_app.Xtools import keyGroups
 import os
 
 class PageBase(QWidget):
@@ -21,9 +22,6 @@ class PageBase(QWidget):
     
     def start(self):
         pass
-    
-#     def finish(self):
-#         pass
     
     def errorMessage(self):
         return ''
@@ -62,9 +60,9 @@ class PageText(PageBase):
     
     
 class PageCommand(PageBase):
-    def __init__(self, iconChooser):
+    def __init__(self, dialog):
         PageBase.__init__(self)
-        self.iconChooser = iconChooser
+        self.dialog = dialog
         self.lineEdit = QLineEdit(self)
         self.lineEdit.setAcceptDrops(False)
         self.layout.addWidget(QLabel(self.tr("Command:")))
@@ -97,7 +95,7 @@ class PageCommand(PageBase):
                         icon = line.split('=')[1]
                 
                 self.lineEdit.setText(command.strip())
-                self.iconChooser.setIcon(icon.strip())
+                self.dialog.iconEvent.emit(icon.strip())
         else:
             self.lineEdit.setText(text)
         
@@ -136,5 +134,56 @@ class PageShortcut(PageBase):
         return self.tr("You must enter a shortcut.")   
 
         
+
+class PageRemapping(PageBase):
+    def __init__(self, dialog):
+        PageBase.__init__(self)
+        self.dialog = dialog
+        self.menuButton = QPushButton(self.tr("Choose..."))
+        self.layout.addWidget(self.menuButton)
+        self.layout.addStretch(1)
+        self.fillMenu()
+        self.char = ''
+        self.keyname = ''
         
+    def fillMenu(self):
+        menu = QMenu(self.menuButton)
+        for group, data in keyGroups.keyGroups:
+            m = menu.addMenu(group)
+            for keyname, char in data:
+                a = m.addAction(u"{}  {}".format(char, keyname))
+                a.setData((keyname, char))
+                
+        self.menuButton.setMenu(menu)
+        menu.triggered.connect(self.slotMenu)
+    
+    def refreshMenuText(self):
+        self.menuButton.setText(u"{}  {}".format(self.char, self.keyname))
+    
+    def slotMenu(self, act):
+        self.keyname, self.char = act.data()
+        self.refreshMenuText()
+        if self.char:
+            self.dialog.textEvent.emit(self.char)
+        
+    def setData(self, data):
+        self.keyname, self.char = data
+        self.refreshMenuText()
+        
+    def data(self):
+        return self.keyname, self.char
+    
+    def isValid(self):
+        return bool(self.keyname)
+    
+    def errorMessage(self):
+        return self.tr("You must choose a keysym.")
+        
+        
+        
+        
+        
+        
+    
+    
         
