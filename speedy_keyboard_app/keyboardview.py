@@ -34,6 +34,7 @@ import util
 import data as d
 import icons
 import os
+import time
 
 
 class KeyBase(QGraphicsRectItem):
@@ -47,7 +48,7 @@ class KeyBase(QGraphicsRectItem):
         self._mItem = None
         self._isUsed = True
         self._isKeypadKey = False
-        self._modifier = -1
+        self._modifier = 0
         self.font = QFont()
         pen = QPen(util.keyboardColors('border'))
         pen.setWidth(2)
@@ -67,7 +68,7 @@ class KeyBase(QGraphicsRectItem):
         self._modifier = mod
     
     def isModifier(self):
-        return self._modifier != -1
+        return bool(self._modifier)
     
     def setIsUsed(self, val):
         self._isUsed = val
@@ -90,7 +91,16 @@ class KeyBase(QGraphicsRectItem):
     
     def setColor(self, colorName):
         self._color = util.keyboardColors(colorName)
-        self.setBrush(self._color)
+        self.updateColor(self._color)
+        
+    def updateColor(self, color, colorRadius=0x333333, forceShadow=False):
+        w = self.rect().width()
+        h = self.rect().height()
+        gradient = QRadialGradient(w/6, h/6, max(w, h)*1.2 , w/2, h/2)
+        gradient.setColorAt(0, self._color);
+        gradient.setColorAt(0.8, QColor(color.rgb() - colorRadius))
+        brush = QBrush(gradient)
+        self.setBrush(brush)
         
     def setMItemTooltip(self):
         if self._mItem:
@@ -131,21 +141,26 @@ class KeyBase(QGraphicsRectItem):
         return None
     
     def select(self):
-        self.setBrush(util.keyboardColors('select'))
+        self.updateColor(QColor(self._color.rgb() + 0x0E0E0E), 0x222222)
         
 #         
     def restoreColor(self):
-        self.setBrush(self._color)
+        self.updateColor(self._color)
     
     def setSize(self, w, h):
         self.setRect(0, 0, w, h)
+        minSize = min(w, h)
+        self.keyRound = minSize/10.0
+        pen = self.pen()
+        pen.setWidth(minSize/20.0)
+        self.setPen(pen)
     
     def getCenter(self, rect):
         x = (self.rect().width() - rect.width()) / 2
         y = (self.rect().height() - rect.height()) / 2
         return QPointF(x, y)
     
-    def setText(self, text, elide=True):
+    def setText(self, text, tooltip='', elide=True):
         size = self.view().keySize()
         if len(text) == 1:
             self.font.setPixelSize(int(size/2))
@@ -155,16 +170,21 @@ class KeyBase(QGraphicsRectItem):
             self.font.setPixelSize(int(size/3))
         else:
             self.font.setPixelSize(int(size/4))
-            if elide:
-                metric = QFontMetrics(self.font)
-                text = metric.elidedText(text, Qt.ElideRight, size-2)
+        
+        self.setToolTip('')
+        if elide:
+            metric = QFontMetrics(self.font)
+            textWidth = metric.width(text)
+            self.setToolTip(text if textWidth >= size-2 else '')
+            text = metric.elidedText(text, Qt.ElideRight, size-2)
+        
             
         self.clear()
         self.content = QGraphicsTextItem(text, self)
         
         self.content.setFont(self.font)
         self.content.setPos(self.getCenter(self.content.boundingRect()))
-        self.setToolTip('')
+
         
     def setIcon(self, iconName, tooltip='', sizeCoef = 0.5, isPath=False):
         self.clear()
@@ -218,12 +238,17 @@ class KeyBase(QGraphicsRectItem):
     
     def hoverEnterEvent(self, event):
         if self.isUsed():
-            clr = self._color.rgb() + 0x0E0E0E
-            self.setBrush(QColor(clr))
+            self.updateColor(QColor(self._color.rgb() + 0x0E0E0E), 0x222222, True)
+#             self.setBrush(QColor(clr))
+#             self.effect.setColor(QColor(self._color.rgb() - 0x5A5A5A))
+#             self.effect.setEnabled(True)
+            
         
     def hoverLeaveEvent(self, event):
         if self.isUsed():
-            self.setBrush(self._color)
+            self.restoreColor()
+#             self.setBrush(self._color)
+#             self.effect.setColor(QColor(self._color.rgb() - 0x7F7F7F))
     
     def view(self):
         return self.scene().views()[0]
@@ -236,6 +261,7 @@ class Key(KeyBase):
         KeyBase.__init__(self, scene, keycode)
     
     def paint(self, painter, opt, widget):
+        painter.setPen(self.pen())
         painter.setBrush(self.brush())
         painter.drawRoundedRect(self.rect(), self.keyRound, self.keyRound)
        
@@ -250,10 +276,11 @@ class ReturnKey(KeyBase):
         self.infoSize = infoSize
     
     def paint(self, painter, opt, widget):
+        painter.setPen(self.pen())
         painter.setBrush(self.brush())
         w1, w2, space, size = self.infoSize
         path = QPainterPath()
-
+        
         round_ = self.keyRound * 2
         path.moveTo(round_/2, 0)
         path.arcTo(w1 - round_, 0, round_, round_, 90, -90)
@@ -281,13 +308,13 @@ class KeyboardView(QGraphicsView):
         self.mainWindow = mainWindow
         self.setRenderHint(QPainter.Antialiasing)
         self.setRenderHint(QPainter.TextAntialiasing)
-        self.setBackgroundBrush(util.keyboardColors('bg'))
+#         self.setBackgroundBrush(util.keyboardColors('bg'))
         self.setMinimumSize(400, 180)
         self.setScene(QGraphicsScene(self))
         self.display = display.Display()
         self._keys = []
         self._modifierKeys = []
-        self._space = 4.0
+        self._space = 5.0
         self._keySize = 40.0
         self.model = ()
         self._currentModifier = self.display.numMask()
@@ -299,7 +326,7 @@ class KeyboardView(QGraphicsView):
         self.keyReleased.connect(self.slotKeyReleased)
         self.keyMove.connect(self.slotKeyMove)
         self.keyContext.connect(self.slotContext)
-    
+
     def drawKey(self):
         self.scene().clear()
         self._keys = []
@@ -349,6 +376,9 @@ class KeyboardView(QGraphicsView):
             
             
     def loadKey(self, key):
+        if not key.isUsed():
+            key.setColor('not-used')
+            return
         key.clear()
         char, name = self.display.keycode2char(key.keycode(), self._currentModifier)
         keycode = key.keycode()
@@ -364,12 +394,8 @@ class KeyboardView(QGraphicsView):
                     key.setIcon('arrow-shift')
                 elif name in ('Control_L', 'Control_R'):
                     key.setText('Ctrl')
-                elif name == 'Caps_Lock':
-                    key.setText('Caps\nLock', False)
-                elif name == 'Num_Lock':
-                    key.setText('Num\nLock', False)
                 elif name in ('Alt_L', 'Alt_R'):
-                    key.setText('Alt', False)
+                    key.setText('Alt')
                 elif name == 'ISO_Level3_Shift':
                     key.setText('Art Gr'),
                 elif name in ('Super_L', 'Super_R'):
@@ -391,7 +417,7 @@ class KeyboardView(QGraphicsView):
                 elif name in 'Menu':
                     key.setIcon('dropmenu', 'Menu')
                 elif name.startswith('KP_'):
-                    key.setText(name[3:].replace('_', '\n'), False)
+                    key.setText(name[3:].replace('_', '\n'), name, False)
                 elif name.lower() == 'dead_circumflex':
                     key.setText(u"\u005E")
                 elif name.lower() == 'dead_acute':
@@ -410,39 +436,58 @@ class KeyboardView(QGraphicsView):
                     key.setText(u"\u0323")
                 elif name.lower().startswith('dead_'):
                     key.setText(display.name2Char(name[5:].lower()))
+                elif name in ('Page_Up', 'Page_Down', 'Num_Lock', 'Caps_Lock'):
+                    key.setText(name.replace('_', '\n'), elide=False)
+                elif name == 'voidSymbol':
+                    name = char = ''
                 else:
-                    key.setText(name)
+                    key.setText(name.replace('_', ' '))
             
             if key.isModifier():
                 key.setColor("modifier-on" if self._currentModifier & key.modifier() else "modifier-off")
-            elif not char:
-                key.setColor('no-char')
-                
-            elif char.lower().startswith('dead_'):
-                key.setColor('dead-key')
-            else:
+            elif not char and name:
+                key.setColor('special-key')
+            elif char:
                 key.setColor('default')
-    
+            else:
+                key.setColor('no-char')
+#             else:
+#                 key.setColor('default')
+                
+                
+#                 len(name) > 1:
+#                 key.setColor('dead-key')
+                
+#             elif char.lower().startswith('dead_'):
+#                 key.setColor('dead-key')
+            
+#     
     
     def mapping(self):
         return self.mainWindow.mapping()
     
     def slotModifierPressed(self, mod):
+        self.toggleModifier(mod)
+        self.loadLayout()
+        
+    def toggleModifier(self, mod):
         if self._currentModifier & mod:
             self._currentModifier ^= mod
         else:
             self._currentModifier |= mod
         
-        self.loadLayout()
     
     def slotEditKey(self, key):
-        if not key.isModifier():
-            dlg = dialogEditor.DialogEditor(self, key.mItem())
-            if dlg.exec_():
-                item = MappingItem(key.keycode(), self.display.removeNumLockMask(key.keycode(), self._currentModifier), *dlg.getData())
-                self.mapping().addItem(item)
-                key.setMitem(item)
-                self.keyModified.emit()
+        if key.isModifier():
+            return
+        
+        dlg = dialogEditor.DialogEditor(self, key.mItem())
+        if dlg.exec_():
+            item = MappingItem(key.keycode(), self.display.removeNumLockMask(key.keycode(), self._currentModifier), *dlg.getData())
+            self.mapping().addItem(item)
+            key.setMitem(item)
+            self.keyModified.emit()
+        
     
     def slotKeyReleased(self, pos):
         key = self.keyAt(pos)
@@ -535,15 +580,22 @@ class KeyboardView(QGraphicsView):
         size = self.viewport().size()
         if size is None:
             size = self.viewport().size()
-        w = size.width()
-        h = size.height()
+        w = max(size.width(), self.minimumWidth())
+        h = max(size.height(), self.minimumHeight())
         margin = 10
+        self._space = w / 300.0
         hKey = (w-self._space*self.hNumKey-margin) / (self.hNumKey)
         vKey = (h-self._space*self.vNumKey-margin) / (self.vNumKey)
         self._keySize = min(hKey, vKey)
         wScene = self.hNumKey*(self._keySize+self._space) - self._space
         hScene= self.vNumKey*(self._keySize+self._space) - self._space
         self.scene().setSceneRect(0, 0, wScene, hScene)
+        gradient = QLinearGradient(0, 0, 0, h)
+        gradient.setColorAt(0, QColor(util.keyboardColors('bg').rgb() - 0x202020))
+        gradient.setColorAt(1, util.keyboardColors('bg'));
+        self.setBackgroundBrush(QBrush(gradient))
+        
+        
         self.drawKey()
         self.loadLayout()
     
@@ -556,4 +608,3 @@ class KeyboardView(QGraphicsView):
                 
     def resizeEvent(self, event):
         self.updateSize()
-        
