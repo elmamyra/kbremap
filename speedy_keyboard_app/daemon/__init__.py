@@ -1,11 +1,13 @@
 import socket
 import select
-from .. import  data as d
 from handler import Handler
+from .. import util
 import threading, sys
-import Queue
-import time
+import logging
+from logging.handlers import RotatingFileHandler
 from subprocess import Popen, call
+
+PORT = 22347
 
 class Signal(object):
     def __init__(self):
@@ -28,12 +30,14 @@ class Daemon(object):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.handler = Handler(self)
+        self.log = logger()
+        self.log.info('test')
         self._state = 'running'
 
     
     def connect(self, arg=None):
         try:
-            self.socket.bind((socket.gethostname(), d.PORT))
+            self.socket.bind((socket.gethostname(), PORT))
             self.socket.listen(3)
             self.running = True
             self.input = [self.socket]
@@ -48,7 +52,7 @@ class Daemon(object):
     def quit():
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.connect((socket.gethostname(), d.PORT))
+            s.connect((socket.gethostname(), PORT))
             s.send('quit')
         except:
             print "The daemon is already closed"
@@ -67,13 +71,9 @@ class Daemon(object):
                     print 'data', data
                     if not data:
                         s.close()
-                        with open('log.txt', 'w') as f:
-                            f.write('client server close')
                         print 'client server close'
                         self.input.remove(s)
                     elif data == 'quit':
-                        print 'quit'
-#                         self.queue.put('quit')
                         self.running = False
                         self.handler.stop()
                     elif data == 'update':
@@ -89,6 +89,8 @@ class Daemon(object):
                             self.handler.ungrabKeys()
                             self._state = 'paused'
                             s.send('pause')
+                        else:
+                            print "The daemon is already paused"
                         
                         
                         
@@ -97,11 +99,41 @@ class Daemon(object):
             client.close()
             
 
+def logger():
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s')
+    file_handler = RotatingFileHandler(util.configPath('activity.log'), 'a', 1000000, 1)
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    steam_handler = logging.StreamHandler()
+    steam_handler.setLevel(logging.DEBUG)
+    logger.addHandler(steam_handler)
+    return logger
+
+def _send(msg):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((socket.gethostname(), PORT))
+        s.send(msg)
+        return True
+    except:
+        return False
+
 def start():
     daemon = Daemon()
     daemon.connect()
     
-def close():
-    Daemon.quit()
+def pause():
+    if not _send('pause'):
+        print "The daemon is closed"
+        
+def resume():
+    if not _send('resume'):
+        print "The daemon is closed"
     
-# start()
+def close():
+    if not _send('quit'):
+        print "The daemon is already closed"
+    
