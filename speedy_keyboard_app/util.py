@@ -49,17 +49,13 @@ class Separator(QFrame):
         return Qt.Vertical if self.frameStyle() & QFrame.VLine == QFrame.VLine else Qt.Horizontal
 
     
-def modXmask(mod):
-    return d.MODIFIER_MASK.get(mod, -1)
-
-def keycodeMod(keycode):
-    return d.MODIFIER_KEYCODES.get(keycode, -1)
-
 def keyboardColors(name):
     return d.KEYBOARD_COLOR.get(name, QColor())
 
-def configPath():
+
+
+def configPath(fileName='mappings.xml'):
         configDir = os.environ.get('XDG_CONFIG_HOME') or os.path.expanduser("~/.config")
-        return os.path.join(configDir, info.name, 'mappings.xml')
+        return os.path.join(configDir, info.name, fileName)
 
 
