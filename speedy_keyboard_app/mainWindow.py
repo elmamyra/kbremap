@@ -72,7 +72,7 @@ class MainWindow(QMainWindow):
             self.restoreGeometry(settings.value('geometry'))
             self.restoreState(settings.value('windowState'))
         else:
-            self.resize(1000, 260)
+            self.resize(860, 300)
             
         self.keyboardModel = settings.value('keyboardModel', 'generic_105')
         self._mapping = mapping.Mapping()
