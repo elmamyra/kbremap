@@ -10,61 +10,95 @@ import network
 import mapping
 import icons
 import info
-import sys, os
+import os, sys
 from subprocess import Popen
 import __main__
-print __main__.__file__
+import dbus
+PORT = 45691
 
 class MainWindow(QMainWindow):
     updated = Signal()
     def __init__(self):
         super(MainWindow, self).__init__()
-        self._isModified = False
-        self.readSettings()
-        self.setMenu()
-        QApplication.setWindowIcon(icons.get('speedy-keyboard'))
+        self.action = Action(self)
+#         self.setWindowState(Qt.WindowActive)
+
+        
         centralWidget = QWidget(self)
         layout = QVBoxLayout(centralWidget)
         self.keyboardEditor = KeyboardView(centralWidget, self)
-        self.keyboardEditor.setModel(self.keyboardModel)
+        self.keyboardEditor.setFocus()
         layout.addWidget(self.keyboardEditor)
         self.setCentralWidget(centralWidget)
+        self.readSettings()
+        self.setMenu()
+        self.setToolBar()
+#         self.fillLoadMenu()
+        QApplication.setWindowIcon(icons.get('speedy-keyboard'))
         
-        self.setStatusBar(QStatusBar())
         
         self.network = network.Network(self)
         
-        
         self.updateTitle()
-#         self.shift = True
-        self.daemonPauseAction.setEnabled(False)
-        self.daemonStopAction.setEnabled(False)
+        self.action.daemonPauseAction.setEnabled(False)
+        self.action.daemonStopAction.setEnabled(False)
+        self.action.syncAction.setEnabled(False)
+        self._serverState = "stopped"
+        self.setStateLabel("stopped")
+        
 
         self.keyboardEditor.keyModified.connect(self.slotModified)
-        self.network.connected.connect(self.slotSocketConnected)
-        self.network.socketClosed.connect(self.slotSocketClosed)
-        self.network.socketPaused.connect(self.slotSocketPaused)
-        self.network.socketResumed.connect(self.slotSocketResumed)
+        self.network.messageReceived.connect(self.slotMessageReceived)
+        self.network.serverClosed.connect(self.slotServerClosed)
         self.network.connect_()
         self.show()
     
-    def slotSocketConnected(self):
-        self.applyEnabled(False, True, True, self.tr("The Daemon is running"))
+    
+    
+    def slotMessageReceived(self, msg):
+        if msg == 'updated':
+            self.setStateLabel(msg, 2)
+            self.keyboardEditor.loadLayout()
+        if msg.startswith('loaded'):
+            self._mapping.load(msg.split()[1])
+            self.keyboardEditor.loadLayout()
+            self.updateTitle()
+            self.setStateLabel('loaded {}'.format(self._mapping.title()), 2)
+        elif msg.startswith('state'):
+            self.action.daemonPauseAction.blockSignals(True)
+            state = msg.split()[1]
+            if state == 'paused':
+                self.action.daemonPauseAction.setChecked(True)
+                self.applyEnabled(False, True, True, True)
+                self._serverState = 'paused'
+            elif state == 'running':
+                self.action.daemonPauseAction.setChecked(False)
+                self._serverState = 'running'
+                self.applyEnabled(False, True, True, True)
+            self.action.daemonPauseAction.blockSignals(False)
+            self.setStateLabel()
+            
+    def slotServerClosed(self):
+        self._serverState = 'closed'
+        self.applyEnabled(True, False, False, False)
+        self.action.daemonPauseAction.setChecked(False)
+        self.setStateLabel()
         
-    def slotSocketClosed(self):
-        self.applyEnabled(True, False, False, self.tr("The Daemon is stopped"))
-        
-    def slotSocketPaused(self):
-        self.applyEnabled(True, True, False, self.tr("The Daemon is paused"))
-        
-    def slotSocketResumed(self):
-        self.applyEnabled(False, True, True, self.tr("The Daemon resumed"))
-        
-    def applyEnabled(self, start, stop, pause, msg):
-        self.statusBar().showMessage(msg, 3000)
-        self.daemonStartAction.setEnabled(start)
-        self.daemonStopAction.setEnabled(stop)
-        self.daemonPauseAction.setEnabled(pause)
+
+    
+    def applyEnabled(self, start, stop, pause, sync):
+        a = self.action
+        a.daemonStartAction.setEnabled(start)
+        a.daemonStopAction.setEnabled(stop)
+        a.daemonPauseAction.setEnabled(pause)
+        a.syncAction.setEnabled(sync)
+    
+    
+    def setStateLabel(self, state='', secs=0):
+        state = state or self._serverState
+        self.labelState.setText(self.tr("Server state: <b>{}</b>").format(state))
+        if secs:
+            QTimer.singleShot(int(secs*1000), self.setStateLabel)
     
     def readSettings(self):
         settings = QSettings()
@@ -72,55 +106,65 @@ class MainWindow(QMainWindow):
             self.restoreGeometry(settings.value('geometry'))
             self.restoreState(settings.value('windowState'))
         else:
-            self.resize(860, 300)
+            self.resize(920, 340)
             
         self.keyboardModel = settings.value('keyboardModel', 'generic_105')
+        self.keyboardEditor.setModel(self.keyboardModel)
         self._mapping = mapping.Mapping()
         self._mapping.loadCurrent()
-
-    def setMenu(self):
-        # action generator for actions added to search entry
-        def act(text, slot, shortcut=None, icon=None):
-            a = QAction(text, self, triggered=slot)
-            self.addAction(a)
-            a.setShortcutContext(Qt.WidgetWithChildrenShortcut)
-            shortcut and a.setShortcut(QKeySequence(shortcut))
-            icon and a.setIcon(icons.get(icon))
-            return a
+        if not self._mapping.isValid():
+            self.keyboardEditor.setEnabled(False)
         
+        self.action.loadAction.setEnabled(bool(mapping.getAllNames()))
+        autoStart = {'true': True, 'false': False}[settings.value('autoStart', 'false')]
+        self.action.autoStartAction.setChecked(autoStart)
+        
+    def setMenu(self):
+        a = self.action
         menu = QMenuBar()
         #file menu
         menuFile = menu.addMenu(self.tr("Fichier"))
-        
-        self.newAction = act(self.tr("New..."), self.slotNew, Qt.Key_N, 'document-new')
-        menuFile.addAction(self.newAction)
-        
-        self.loadMenu = menuFile.addMenu(self.tr("Load"))
-        self.fillLoadMenu()
-        
-        self.saveAction = act(self.tr("Save"), self.slotSave, Qt.Key_S, 'document-save')
-        menuFile.addAction(self.saveAction)
-        
-        self.renameAction = act(self.tr("Rename..."), self.slotRename, Qt.Key_R, 'go-jump')
-        menuFile.addAction(self.renameAction)
-        
-        self.clearAction = act(self.tr("Clear"), self.slotClear, Qt.Key_C, 'edit-clear')
-        menuFile.addAction(self.clearAction)
-        
-        self.deleteAction = act(self.tr("Delete"), self.slotDelete, Qt.Key_D, 'edit-delete')
-        menuFile.addAction(self.deleteAction)
+        menuFile.addAction(a.newAction)
+        menuFile.addMenu(a.loadMenu)
+        menuFile.addAction(a.renameAction)
+        menuFile.addAction(a.clearAction)
+        menuFile.addAction(a.deleteAction)
+        menuFile.addSeparator()
+        menuFile.addAction(a.importAction)
+        menuFile.addAction(a.exportAction)
         
         menuFile.addSeparator()
         
-        self.importAction = act(self.tr("Import..."), self.slotImport, Qt.Key_I, 'folder-open')
-        menuFile.addAction(self.importAction)
-        
-        self.exportAction = act(self.tr("Export..."), self.slotExport, Qt.Key_X, 'document-save-as')
-        menuFile.addAction(self.exportAction)
+#         keyboardModel = menuFile.addMenu(self.tr("keyboard model"))
+#         keyboardModel.triggered.connect(self.slotKeyboardModel)
+#         modList = ((self.tr('Generic 101'), 'generic_101'), 
+#                    (self.tr('Generic 102'), 'generic_102'),
+#                    (self.tr('Generic 104'), 'generic_104'),
+#                    (self.tr('Generic 105'), 'generic_105'),
+#                    ('TypeMatrix', 'typeMatrix'),
+#                    )
+#         self.modelActionGroup = ag = QActionGroup(self, exclusive=True)
+
+#         for title, name in modList:
+#             modAct = ag.addAction(QAction(title, self, checkable=True, checked=name==self.keyboardModel))
+#             modAct.setData(name)
+#             keyboardModel.addAction(modAct)
         
         menuFile.addSeparator()
         
-        keyboardModel = menuFile.addMenu(self.tr("keyboard model"))
+        menuFile.addAction(a.quitAction)
+        
+        menuServer = menu.addMenu(self.tr("Server"))
+        
+        menuServer.addAction(a.daemonStartAction)
+        menuServer.addAction(a.daemonPauseAction)
+        menuServer.addAction(a.daemonStopAction)
+        menuServer.addAction(a.syncAction)
+        menuServer.addSeparator()
+        menuServer.addAction(a.autoStartAction)
+        
+        menuKeyboard = menu.addMenu(self.tr("Keyboard"))
+        keyboardModel = menuKeyboard.addMenu(self.tr("keyboard model"))
         keyboardModel.triggered.connect(self.slotKeyboardModel)
         modList = ((self.tr('Generic 101'), 'generic_101'), 
                    (self.tr('Generic 102'), 'generic_102'),
@@ -129,45 +173,49 @@ class MainWindow(QMainWindow):
                    ('TypeMatrix', 'typeMatrix'),
                    )
         self.modelActionGroup = ag = QActionGroup(self, exclusive=True)
-
+        
         for title, name in modList:
             modAct = ag.addAction(QAction(title, self, checkable=True, checked=name==self.keyboardModel))
             modAct.setData(name)
             keyboardModel.addAction(modAct)
-        
-        menuFile.addSeparator()
-        
-        a = act(self.tr("Quit"), self.close, Qt.Key_Q, 'application-exit')
-        menuFile.addAction(a)
-        
-        menuDaemon = menu.addMenu(self.tr("Daemon"))
-        
-        self.daemonStartAction = act(self.tr("Start"), self.slotDeamonStart, None, 'media-playback-start')
-        menuDaemon.addAction(self.daemonStartAction)
-        
-        self.daemonPauseAction = act(self.tr("Pause"), self.slotDeamonPause, None, 'media-playback-pause')
-        menuDaemon.addAction(self.daemonPauseAction)
-        
-        self.daemonStopAction = act(self.tr("Stop"), self.slotDeamonStop, None, 'media-playback-stop')
-        menuDaemon.addAction(self.daemonStopAction)
-        
         self.setMenuBar(menu)
         self.enableAction()
-        self.saveAction.setDisabled(True)
     
+    def setToolBar(self):
+        a = self.action
+        toolBar = self.addToolBar(self.tr('Tool bar'))
+        toolBar.setIconSize(QSize(20, 20))
+        toolBar.setObjectName('mainToolBar')
+        loadTool = QToolButton()
+        loadTool.setMenu(a.loadMenu)
+        loadTool.setDefaultAction(a.loadAction)
+        loadTool.setPopupMode(QToolButton.InstantPopup)
+        self.labelState = QLabel()
+         
+        toolBar.addAction(a.newAction)
+        toolBar.addWidget(loadTool)
+        toolBar.addSeparator()
+        toolBar.addAction(a.daemonStartAction)
+        toolBar.addAction(a.daemonPauseAction)
+        toolBar.addAction(a.daemonStopAction)
+        toolBar.addAction(a.syncAction)
+        toolBar.addSeparator()
+        toolBar.addWidget(self.labelState)
+        
+        
     def enableAction(self):
         val = self._mapping.isValid()
-        for act in (self.renameAction, self.deleteAction, self.exportAction):
+        a = self.action
+        for act in (a.renameAction, a.deleteAction, a.exportAction):
             act.setEnabled(val)
     
     def updateTitle(self):
         mappingTitle = self._mapping.title() or self.tr("Untitled")
-        modified = "[{}]".format(self.tr("Modified")) if self._isModified else ""
-        title = ' '.join((mappingTitle, modified, '-', info.name))
+        title = ' '.join((mappingTitle, '-', info.name))
         self.setWindowTitle(title)
     
     def fillLoadMenu(self):
-        m = self.loadMenu
+        m = self.action.loadMenu
         m.clear()
         
         self.mappingActionGroup = ag = QActionGroup(self, exclusive=True)
@@ -178,6 +226,7 @@ class MainWindow(QMainWindow):
             m.addAction(act)
         ag.triggered.connect(self.slotLoad)
         m.setEnabled(bool(ag.actions()))
+        self.action.loadAction.setEnabled(bool(ag.actions()))
     
     def mapping(self):   
         return self._mapping
@@ -187,91 +236,37 @@ class MainWindow(QMainWindow):
         self.keyboardEditor.setModel(act.data())
     
     def slotModified(self):
-        if not self._isModified:
-            self._isModified = True
-            self.saveAction.setEnabled(True)
-            self.updateTitle()
+        self.save()
 
     def slotNew(self):
-        if self._isModified:
-            resp = self.saveDialog()
-            if resp == QMessageBox.Cancel:
-                return
-            
-            if resp == QMessageBox.Save:
-                self.saveAction.trigger()
-                
-        dlg = DialogNew(self, self._mapping.name())
+        dlg = DialogNew(self)
         if dlg.exec_():
             title, from_ = dlg.getData()
             self._mapping.create(title, from_)
             self._mapping.save()
-            self._isModified = False
             self.updateTitle()
-            self.keyboardEditor.loadLayout()
             self.enableAction()
+            self.keyboardEditor.setEnabled(True)
             self.fillLoadMenu()
-            self.updated.emit()
+            self.keyboardEditor.loadLayout()
         
     def load(self, name):
         self._mapping.load(name)
-        self._isModified = False
         self.enableAction()
         self.updateTitle()
-        self.keyboardEditor.loadLayout()
+        self.keyboardEditor.setEnabled(True)
         
-    
-    def saveDialog(self):
-        title = self.tr("Close mapping")
-        name = self._mapping.title() or self.tr("Untitled")
-        mess = self.tr("The mapping \"{name}\" has been modified.<br/>\
-            Do you want to save your changes or discard them?").format(name=name)
-        buttons = QMessageBox.Discard | QMessageBox.Cancel | QMessageBox.Save
-        return QMessageBox.question(self, title, mess, buttons=buttons)
-        
-    
     def slotLoad(self, act):
-        if self._isModified:
-            resp = self.saveDialog()
-        
-            if resp == QMessageBox.Cancel:
-                prevAction = filter(lambda a: a.data() == self._mapping.name(), 
-                                    self.mappingActionGroup.actions())[0]
-                prevAction.setChecked(True)
-                return
-            
-            if resp == QMessageBox.Save:
-                self.saveAction.trigger()
-        
         self.load(act.data())
-        self.updated.emit()
-    
-    
-    def slotSave(self):
-        if not self._mapping.isValid():
-            title, isOk = QInputDialog.getText(self, self.tr("mapping name"), 
-                                               self.tr("Enter a name for this mapping"))
-            if isOk and title:
-                title = mapping.getUniqueTile(title)
-                self._mapping.setName(mapping.getUniqueName())
-                self._mapping.setTitle(title)
-                self.save()
-                self.updated.emit()
-        else:
-            self.save()
-            self.updated.emit()
+        self.keyboardEditor.loadLayout()
     
     def save(self):
         self._mapping.save()
-        self._isModified = False
-        self.saveAction.setDisabled(True)
-        self.updateTitle()
         
     def slotRename(self):
         newName, isOk = QInputDialog.getText(self, self.tr("Rename"), self.tr("Enter the new name"))
         if isOk:
             self._mapping.rename(newName)
-            self.fillLoadMenu()
             self.updateTitle()
     
     def slotClear(self):
@@ -282,10 +277,8 @@ class MainWindow(QMainWindow):
                 return
             
             self._mapping.clearItems()
-            self.updated.emit()
-            self._isModified = True
             self.keyboardEditor.loadLayout()
-            self.updateTitle()
+            self.save()
         
     def slotDelete(self):
         if self._mapping.isValid():
@@ -296,53 +289,111 @@ class MainWindow(QMainWindow):
                 return
             
             self._mapping.delete()
-            self._isModified = False
             self.enableAction()
             self.updateTitle()
-            self.keyboardEditor.loadLayout()
             self.fillLoadMenu()
-            self.updated.emit()
+            self.keyboardEditor.setDisabled(True)
+            self.keyboardEditor.loadLayout()
             
     def slotImport(self):
         print 'not implemented'
-        self.testEvent.emit()
         
     def slotExport(self):
         print 'not implemented'
     
     def slotDeamonStart(self):
-        if self.network.isConnected():
-            self.network.send('resume')
-        else:
-            Popen([__main__.__file__, '-d'], close_fds=True)
+        if not self.network.isConnected():
+            Popen([sys.argv[0], '-s'], close_fds=True)
+            
             
     def slotDeamonStop(self):
         self.network.send('quit')
         
-    def slotDeamonPause(self):
+    def slotDeamonPause(self, val):
         self.network.send('pause')
         
+    def slotSync(self):
+        self.updated.emit()
+        
+        
+    def slotAutoStart(self, val):
+        configPath = os.environ.get('XDG_CONFIG_HOME') or os.path.expanduser('~/.config/')
+        autoStartPath = os.path.join(configPath, 'autostart')
+        filePath = os.path.join(autoStartPath, 'speedy-keyboard-server.desktop')
+        if val:
+            path = __main__.__file__
+            text = "[Desktop Entry]\n"
+            text += "Type=Application\n"
+            text += "Exec={} -s\n".format(path)
+            text += "Icon={}.svg\n".format(path)
+            text += "Name={}\n".format(info.name)
+            text += "Comment={} server\n".format(info.name)
+            if not os.path.exists(autoStartPath):
+                os.makedirs(autoStartPath)
+                
+            with open(filePath, 'w') as f:
+                f.write(text)
+        else:
+            if os.path.exists(filePath):
+                os.remove(filePath)
+    
+    def slotModeChange(self):
+        pass
+    
     
     def closeEvent(self, event):
         self.network.stop()
-        if self._isModified:
-            resp = self.saveDialog()
-            if resp == QMessageBox.Cancel:
-                return
-            
-            if resp == QMessageBox.Save:
-                self.saveAction.trigger()
-                self.updated.emit()
-        
         settings = QSettings()
         settings.setValue("geometry", self.saveGeometry())
         settings.setValue("windowState", self.saveState())
         settings.setValue("keyboardModel", self.modelActionGroup.checkedAction().data())
         if self._mapping.isValid():
             settings.setValue('mapping', self._mapping.name())
+            
+        settings.setValue('autoStart', self.action.autoStartAction.isChecked())
         
         QMainWindow.closeEvent(self, event)
+
+class Action(QObject):
+    def __init__(self, parent):
+        QObject.__init__(self, parent)
+        def act(text, slot, shortcut=None, icon=None):
+            a = QAction(text, parent, triggered=slot)
+#             parent.addAction(a)
+            a.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+            shortcut and a.setShortcut(QKeySequence(shortcut))
+            icon and a.setIcon(icons.get(icon))
+            return a
         
+        self.loadAction = QAction(icons.get('document-open'), self.tr('Load'), parent)
+        self.loadMenu = QMenu(self.tr('Load'))
+        self.loadMenu.setActiveAction(self.loadAction)
+        self.loadMenu.setIcon(icons.get('document-open'))
+        self.loadMenu.aboutToShow.connect(parent.fillLoadMenu)
+        
+        self.newAction = act(self.tr("New..."), parent.slotNew, Qt.Key_N, 'document-new')
+        self.renameAction = act(self.tr("Rename..."), parent.slotRename, Qt.Key_R, 'go-jump')
+        self.clearAction = act(self.tr("Clear"), parent.slotClear, Qt.Key_C, 'edit-clear')
+        self.deleteAction = act(self.tr("Delete"), parent.slotDelete, Qt.Key_D, 'edit-delete')
+        self.importAction = act(self.tr("Import..."), parent.slotImport, Qt.Key_I, 'folder-open')
+        self.exportAction = act(self.tr("Export..."), parent.slotExport, Qt.Key_X, 'document-save-as')
+        self.quitAction = act(self.tr("Quit"), parent.close, Qt.Key_Q, 'application-exit')
+        
+        self.daemonStartAction = act(self.tr("Start"), parent.slotDeamonStart, None, 'media-playback-start')
+        self.daemonPauseAction = QAction(icons.get('media-playback-pause'), self.tr("Pause/Resume"), parent)
+        self.daemonPauseAction.setCheckable(True)
+        self.daemonPauseAction.toggled.connect(parent.slotDeamonPause)
+        self.daemonStopAction = act(self.tr("Stop"), parent.slotDeamonStop, None, 'media-playback-stop')
+        self.syncAction = act(self.tr("Synchronize"), parent.slotSync, None, 'sync')
+        self.autoStartAction = QAction(icons.get('gears-sticker'), self.tr("Launch at startup"), parent)
+        self.autoStartAction.setCheckable(True)
+        self.autoStartAction.toggled.connect(parent.slotAutoStart)
+        self.modeGroupAction = mg = QActionGroup(parent)
+        self.modeGroupAction.triggered.connect(parent.slotModeChange)
+        self.remappingModeAction = mg.addAction(self.tr("Remapping"))
+        self.shortcutModeAction = mg.addAction(self.tr("Shortcut"))
+        
+
 def start():
     app = QApplication(sys.argv)
     locale = QLocale.system().name()
@@ -354,6 +405,7 @@ def start():
     QApplication.setApplicationVersion(info.version)
     QApplication.setOrganizationName(info.name)
     QApplication.setOrganizationDomain(info.domain)
-    win = MainWindow()
+    MainWindow()
     sys.exit(app.exec_())
+    
         

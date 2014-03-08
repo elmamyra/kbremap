@@ -55,6 +55,13 @@ class KeyBase(QGraphicsRectItem):
         self.setPen(pen)
         self.tr = QObject().tr
         
+    def setEnabled_(self, val):
+        if val:
+            self.restoreColor()
+        else:
+            self.updateColor(QColor(80, 80, 80), 0x3A3A3A)
+        
+        
     def keycode(self):
         return self._keycode
     
@@ -70,9 +77,14 @@ class KeyBase(QGraphicsRectItem):
     def isModifier(self):
         return bool(self._modifier)
     
-    def setIsUsed(self, val):
-        self._isUsed = val
-        val and self.setColor('not-used')
+    def unused(self):
+        self._isUsed = False
+        self.noSymbol()
+        
+    def noSymbol(self):
+        self.setColor('not-used')
+        self.setEnabled(False)
+        self.setToolTip(self.tr('no symbol'))
         
     def isUsed(self):
         return self._isUsed
@@ -88,16 +100,23 @@ class KeyBase(QGraphicsRectItem):
             self.scene().removeItem(self.content)
             self.content = None
             self._mItem = None
+#             if self._isUsed:
+#                 print 'used'
+        self.setEnabled(True)
+#             self.setAcceptHoverEvents(True)
+#             self.setAcceptedMouseButtons(Qt.LeftButton | Qt.RightButton)
+        self.setToolTip('')
+#             print self.isEnabled()
     
     def setColor(self, colorName):
         self._color = util.keyboardColors(colorName)
         self.updateColor(self._color)
         
-    def updateColor(self, color, colorRadius=0x333333, forceShadow=False):
+    def updateColor(self, color, colorRadius=0x333333):
         w = self.rect().width()
         h = self.rect().height()
         gradient = QRadialGradient(w/6, h/6, max(w, h)*1.2 , w/2, h/2)
-        gradient.setColorAt(0, self._color);
+        gradient.setColorAt(0, color);
         gradient.setColorAt(0.8, QColor(color.rgb() - colorRadius))
         brush = QBrush(gradient)
         self.setBrush(brush)
@@ -113,7 +132,9 @@ class KeyBase(QGraphicsRectItem):
             elif t == d.SHORTCUT:
                 val = data[2]
             elif t == d.REMAPPING:
-                val = u"<b>{}</b> {}".format(data[1], data[0])
+                char = display.keysym2char(data)
+                name = display.keysym2name(data)
+                val = u"<b>{}</b> {}".format(char, name)
             else:
                 val = data
             
@@ -216,37 +237,29 @@ class KeyBase(QGraphicsRectItem):
             event.ignore()
         
     def mouseDoubleClickEvent(self, event):
-        if self.isUsed():
-            if event.buttons() == Qt.LeftButton:
-                self.view().keyDoubleClicked.emit(self)
-            else:
-                event.ignore()
+        if event.buttons() == Qt.LeftButton:
+            self.view().keyDoubleClicked.emit(self)
         else:
             event.ignore()
   
     def mouseReleaseEvent(self, event):
-        if self.isUsed():
-            self.view().keyReleased.emit(event.scenePos())
-        else:
-            event.ignore()
+        self.view().keyReleased.emit(event.scenePos())
         
     def mouseMoveEvent(self, event):
-        if self.isUsed() and self._mItem:
+        if self._mItem:
             self.view().keyMove.emit(event.scenePos())
         else:
             event.ignore()
     
     def hoverEnterEvent(self, event):
-        if self.isUsed():
-            self.updateColor(QColor(self._color.rgb() + 0x0E0E0E), 0x222222, True)
+        self.updateColor(QColor(self._color.rgb() + 0x0E0E0E), 0x222222)
 #             self.setBrush(QColor(clr))
 #             self.effect.setColor(QColor(self._color.rgb() - 0x5A5A5A))
 #             self.effect.setEnabled(True)
             
         
     def hoverLeaveEvent(self, event):
-        if self.isUsed():
-            self.restoreColor()
+        self.restoreColor()
 #             self.setBrush(self._color)
 #             self.effect.setColor(QColor(self._color.rgb() - 0x7F7F7F))
     
@@ -308,7 +321,6 @@ class KeyboardView(QGraphicsView):
         self.mainWindow = mainWindow
         self.setRenderHint(QPainter.Antialiasing)
         self.setRenderHint(QPainter.TextAntialiasing)
-#         self.setBackgroundBrush(util.keyboardColors('bg'))
         self.setMinimumSize(400, 180)
         self.setScene(QGraphicsScene(self))
         self.display = display.Display()
@@ -362,7 +374,7 @@ class KeyboardView(QGraphicsView):
                     key.setIsKeypadKey(True)
                 
                 if info == km.EMPTY:
-                    key.setIsUsed(False)
+                    key.unused()
                 self._keys.append(key)
                 addY = coef[2]*si+1 if len(coef) == 3 else 0
                 key.setPos(x, y+addY)
@@ -373,13 +385,20 @@ class KeyboardView(QGraphicsView):
     def loadLayout(self):
         for key in self._keys:
             self.loadKey(key)
+            key.setEnabled_(self.isEnabled())
             
             
+#     def setEnabled_(self, val):
+#         for key in self._keys:
+#             key.setEnabled_(val)
+#         print 'view enable'
+#         self.setEnabled(val)
+       
     def loadKey(self, key):
         if not key.isUsed():
-            key.setColor('not-used')
             return
         key.clear()
+#         key.setEnabled(True)
         char, name = self.display.keycode2char(key.keycode(), self._currentModifier)
         keycode = key.keycode()
         mods = self.display.removeNumLockMask(keycode, self._currentModifier)
@@ -438,8 +457,9 @@ class KeyboardView(QGraphicsView):
                     key.setText(display.name2Char(name[5:].lower()))
                 elif name in ('Page_Up', 'Page_Down', 'Num_Lock', 'Caps_Lock'):
                     key.setText(name.replace('_', '\n'), elide=False)
-                elif name == 'voidSymbol':
+                elif name == 'VoidSymbol':
                     name = char = ''
+                    
                 else:
                     key.setText(name.replace('_', ' '))
             
@@ -449,8 +469,11 @@ class KeyboardView(QGraphicsView):
                 key.setColor('special-key')
             elif char:
                 key.setColor('default')
+#                 key.setEnabled(True)
             else:
-                key.setColor('no-char')
+                key.noSymbol()
+            
+                
 #             else:
 #                 key.setColor('default')
                 
@@ -491,7 +514,7 @@ class KeyboardView(QGraphicsView):
     
     def slotKeyReleased(self, pos):
         key = self.keyAt(pos)
-        if self.currentPressed and key and key.isUsed() and not key.isModifier():
+        if self.currentPressed and key and key.isEnabled() and not key.isModifier():
             sourceMItem = self.mapping().popItem(self.currentPressed)
             sourceModifiers = sourceMItem.modifiers
             sourceKeycode = sourceMItem.keycode
@@ -521,6 +544,9 @@ class KeyboardView(QGraphicsView):
     
     def slotKeyMove(self, pos):
         key = self.keyAt(pos)
+        if not key or not key.isEnabled():
+            return
+        
         if self.currentPressed:
             if self.currentHover != key:
                 if self.currentHover:
@@ -529,12 +555,11 @@ class KeyboardView(QGraphicsView):
                     key.select()
                     self.currentHover = key
                     
-        elif key:
-            pix = key.pixmap()
-            if pix:
-                self.setCursor(QCursor(pix))
-                self.currentPressed = key.mItem()
-                self.currentHover = key
+        pix = key.pixmap()
+        if pix:
+            self.setCursor(QCursor(pix))
+            self.currentPressed = key.mItem()
+            self.currentHover = key
     
     def slotContext(self, key, pos):
         menu = QMenu()

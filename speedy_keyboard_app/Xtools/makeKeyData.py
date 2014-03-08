@@ -30,13 +30,14 @@ with open(pathDef) as f:
                     comment = split[3:]
                     char = ''
                     keysym = split[1]
+                    keysymHex = split[2]
                     name = keysym[3:]
                     uni = display.name2unicode(name)
                     if uni:
                         char = 'u"\\u{0:04x}"'.format(uni)
                     else:
                         char = '""'
-                    out.write("{}('{}', {}),\n".format(tab, name, char))
+                    out.write('{}("{}", {}, {}),\n'.format(tab, name, keysymHex, char))
                     
         out.write(")")
         

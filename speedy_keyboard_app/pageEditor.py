@@ -4,6 +4,9 @@ from PySide.QtCore import Qt
 from widgets import ShortcutWidget
 from speedy_keyboard_app.Xtools import keyGroups
 import os
+from gtk import gdk
+import mapping
+from Xtools import display
 
 class PageBase(QWidget):
     def __init__(self, parent=None):
@@ -15,7 +18,7 @@ class PageBase(QWidget):
         return None
     
     def isValid(self):
-        return False
+        return True
     
     def setData(self, data):
         pass
@@ -35,22 +38,17 @@ class PageText(PageBase):
     def __init__(self):
         PageBase.__init__(self)
         self.lineEdit = QLineEdit(self)
-        self.checkClipboard = QCheckBox(self.tr("Use clipboard"))
-        
         self.layout.addWidget(QLabel(self.tr("Text:")))
         self.layout.addWidget(self.lineEdit)
-        self.layout.addWidget(self.checkClipboard)
     
     def start(self):
         self.lineEdit.setFocus(Qt.OtherFocusReason)
     
     def data(self):
-        return (self.lineEdit.text(), self.checkClipboard.isChecked())
+        return self.lineEdit.text()
     
     def setData(self, data):
-        text, clipboard = data
-        self.lineEdit.setText(text)
-        self.checkClipboard.setChecked(clipboard)
+        self.lineEdit.setText(data)
     
     def isValid(self):
         return bool(self.lineEdit.text())
@@ -143,46 +141,112 @@ class PageRemapping(PageBase):
         self.layout.addWidget(self.menuButton)
         self.layout.addStretch(1)
         self.fillMenu()
-        self.char = ''
-        self.keyname = ''
+#         self.char = ''
+#         self.keyname = ''
+        self.keysym = -1
         
     def fillMenu(self):
         menu = QMenu(self.menuButton)
         for group, data in keyGroups.keyGroups:
             m = menu.addMenu(group)
-            for keyname, char in data:
-                a = m.addAction(u"{}  {}".format(char, keyname))
-                a.setData((keyname, char))
+            for keyname, keysym, char_ in data:
+                char, name = self.keysym2charAndName(keysym)
+                a = m.addAction(u"{}  {}".format(char, name))
+                a.setData(keysym)
                 
         self.menuButton.setMenu(menu)
         menu.triggered.connect(self.slotMenu)
     
-    def refreshMenuText(self):
-        self.menuButton.setText(u"{}  {}".format(self.char, self.keyname))
+    def setMenuTitle(self, char, keyname):
+        self.menuButton.setText(u"{}  {}".format(char, keyname))
     
     def slotMenu(self, act):
-        self.keyname, self.char = act.data()
-        self.refreshMenuText()
-        if self.char:
-            self.dialog.textEvent.emit(self.char)
-        
+        self.menuButton.setText(act.text())
+        self.keysym = act.data()
+#         self.refreshMenuText()
+        char = display.keysym2char(self.keysym)
+        if char:
+            self.dialog.textEvent.emit(char)
+    
+#     def keysym2charName(self, keysym):
+#         name = gdk.keyval_name(keysym) or ""  # @UndefinedVariable
+#         char = gdk.keyval_to_unicode(keysym)  # @UndefinedVariable
+#         char = unichr(char) if char else ""
+#         return char, name
+
+    def keysym2charAndName(self, keysym):
+        return display.keysym2char(keysym), display.keysym2name(keysym)
+
     def setData(self, data):
-        self.keyname, self.char = data
-        self.refreshMenuText()
+        char, name = self.keysym2charAndName(data)
+        self.menuButton.setText(u"{}  {}".format(char, name))
+#         self.keyname, self.char = data
+#         self.refreshMenuText()
         
     def data(self):
-        return self.keyname, self.char
+        return self.keysym
     
     def isValid(self):
-        return bool(self.keyname)
+        return self.keysym != -1
     
     def errorMessage(self):
         return self.tr("You must choose a keysym.")
         
         
+class PageLoad(PageBase):
+    def __init__(self, dialog):
+        PageBase.__init__(self)
+        self.combo = QComboBox()
+        self.layout.addWidget(self.combo)
+        for name, title in mapping.getAllNamesAndTitles(True):
+            self.combo.addItem(title, name)
+            
+    def setData(self, data):
+        index = self.combo.findData(data)
+        self.combo.setCurrentIndex(index)
+        
+    def data(self):
+        index = self.combo.currentIndex()
+        return self.combo.itemData(index)
+            
         
         
-        
+# class PageServer(PageBase):
+#     def __init__(self, dialog):
+#         PageBase.__init__(self)
+#         self.dialog = dialog
+#         self.combo = QComboBox()
+#         self.layout.addWidget(self.combo)
+#         self.li = (('media-playback-start', self.tr("Resume"), 'resume'),
+#               ('media-playback-pause', self.tr("Pause"), 'pause'),
+#               ('media-playback-stop', self.tr("Stop"), 'quit'),
+#               ('sync', self.tr("synchronize"), 'update')
+#               )
+#               
+#         for icon, name, data in self.li:
+#             self.combo.addItem(icons.get(icon), name, data)
+#         
+#         self.action = None
+#         self.combo.currentIndexChanged.connect(self.slotCombo)
+#     
+#     def start(self):
+#         index = self.combo.currentIndex()
+#         self.slotCombo(index)
+#         
+#         
+#     def setData(self, data):
+#         index = self.combo.findData(data)
+#         self.combo.setCurrentIndex(index)
+#         
+#     def data(self):
+#         index = self.combo.currentIndex()
+#         return self.combo.itemData(index)
+#     
+#     def slotCombo(self, index):
+#         iconName = self.li[index][0]
+#         self.dialog.iconEvent.emit(iconName)
+#         
+            
         
     
     

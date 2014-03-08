@@ -2,7 +2,8 @@ from PySide.QtGui import QColor
 from PySide.QtCore import  QObject
 from collections import namedtuple
 
-TEXT, COMMAND, SHORTCUT, REMAPPING = range(4)
+TEXT, COMMAND, SHORTCUT, REMAPPING, LOAD, PAUSE, STOP, RUN_EDITOR = range(8)
+
 
 GR_TEXT, GR_ICON = range(2)
 
@@ -10,11 +11,16 @@ PORT = 22347
 
 t = namedtuple('t', 'title icon')
 
+tr = QObject().tr
 DATA_TYPE = {
-            TEXT: t(QObject().tr("Text"), 'text'),
-            COMMAND: t(QObject().tr("Command"), 'utilities-terminal'),
-            SHORTCUT: t(QObject().tr("Shortcut"), 'shortcuts'),
-            REMAPPING: t(QObject().tr("Remapping"), 'keys'),
+            TEXT: t(tr("Text"), 'text'),
+            COMMAND: t(tr("Command"), 'utilities-terminal'),
+            SHORTCUT: t(tr("Shortcut"), 'shortcuts'),
+            REMAPPING: t(tr("Remapping"), 'keys'),
+            LOAD: t(tr("Load"), 'document-open'),
+            PAUSE: t(tr("Pause/Resume"), 'media-playback-pause'),
+            STOP: t(tr("Stop"), 'media-playback-stop'),
+            RUN_EDITOR: t(tr("Launch the editor"), 'speedy-keyboard'),
             }
 
 KEYBOARD_COLOR = {

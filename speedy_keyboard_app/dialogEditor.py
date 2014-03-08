@@ -49,7 +49,6 @@ class DialogEditor(QDialog):
         self.iconChooser = IconChooser()
         
         
-        
         layoutGroupBox.addRow(self.radioIcon, self.iconChooser)
         layoutGroupBox.addRow(self.radioText, self.textLineEdit)
         
@@ -65,16 +64,20 @@ class DialogEditor(QDialog):
         self.setLayout(layout)
         
         
-        menuList = (d.TEXT, d.COMMAND, d.SHORTCUT, d.REMAPPING)
+        menuList = (d.TEXT, d.COMMAND, d.SHORTCUT, -1, d.LOAD, d.PAUSE, d.STOP, d.RUN_EDITOR)
         #fill the menu
         for typ in menuList:
-            title, iconName = d.DATA_TYPE[typ]
-            self.typeChooser.addItem(icons.get(iconName), title, typ)
+            if typ != -1:
+                title, iconName = d.DATA_TYPE[typ]
+                self.typeChooser.addItem(icons.get(iconName), title, typ)
+            else:
+                self.typeChooser.insertSeparator(self.typeChooser.count())
         
         self.typeToPage = {d.TEXT: PageText(),
                            d.COMMAND: PageCommand(self),
                            d.SHORTCUT: PageShortcut(),
                            d.REMAPPING: PageRemapping(self),
+                            d.LOAD: PageLoad(self)
                         }
         
         for page in self.typeToPage.values():
@@ -111,7 +114,8 @@ class DialogEditor(QDialog):
     
     def accept(self):
         page = self.stackedWid.currentWidget()
-        typ = self.typeChooser.currentIndex()
+        index = self.typeChooser.currentIndex()
+        typ = self.typeChooser.itemData(index)
         if  typ == -1:
             QMessageBox.warning(self, self.tr("Warning"), self.tr("You must select a type of key."))
             return
@@ -136,7 +140,17 @@ class DialogEditor(QDialog):
     
     def slotTypeChanged(self, index):
         typ = self.typeChooser.itemData(index)
-        page = self.typeToPage.get(typ, self.pageEmpty) 
+#         if typ in (d.PAUSE, d.STOP, d.RUN_EDITOR):
+#             self.iconChooser.setIcon(d.DATA_TYPE[typ])
+            
+#         if typ == d.PAUSE:
+#             self.iconChooser.setIcon('media-playback-pause')
+#         elif typ == d.STOP:
+#             self.iconChooser.setIcon('media-playback-stop')
+        page = self.typeToPage.get(typ, self.pageEmpty)
+        if isinstance(page, PageEmpty):
+            self.iconChooser.setIcon(d.DATA_TYPE[typ].icon)
+        
         self.stackedWid.setCurrentWidget(page)
         page.start()
         

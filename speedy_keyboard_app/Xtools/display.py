@@ -2,11 +2,13 @@
 from Xlib.display import Display as XDisplay
 from Xlib import X, error
 import Xlib
-# from keysymdef import *
 from collections import namedtuple
 from gtk import gdk
-# from speedy_keyboard_app.Xtools.keysDataback import keyGroups
+import gtk
 from subprocess import Popen, PIPE
+from threading import Timer
+from itertools import groupby
+from operator import itemgetter
 
 
 keyEvent = namedtuple('keyEvent', ['type', 'keycode', 'modifiers'])
@@ -41,6 +43,10 @@ class Display:
     def __init__(self):
         self._xdisplay = XDisplay()
         self._xroot = self._xdisplay.screen().root
+        self._clipboard = gtk.clipboard_get()
+#         self._entryForCopy = 0xff63, X.ControlMask
+        self._entryForPaste = 118, X.ShiftMask
+        
         self._group = 0
         self.loadModifiers()
         self._keymap = gdk.keymap_get_default()  # @UndefinedVariable
@@ -57,26 +63,78 @@ class Display:
             self._modifiers.append(li)
     
     
-    def remapKey(self, keycode, modMask, newKeysym):
-        oldKeysym = self.entry2name(keycode, modMask)
-        process = Popen('xmodmap -e "keysym {} = {}"'.format(oldKeysym, newKeysym), shell=True, stdout=PIPE, stderr=PIPE)
-        for line in process.stderr:
-            if not line:
-                break
-            print 'remapKey error:', line
+    def filterGroup(self, entries):
+        return [e for e in entries if e[-2] == self._group]
+    
+    def remapKeys(self, keys):
+        dictKeycode = {}
+        for keycode, modMask, newKeysym in keys:
+            if dictKeycode.get(keycode):
+                dictKeycode[keycode].append((modMask, newKeysym))
+            else:
+                dictKeycode[keycode] = [(modMask, newKeysym)]
+                
+        print dictKeycode
+        
+#         for k, data in groupby(sorted(keys, key=itemgetter(0)) , key=itemgetter(0)):
+#             print list(data)
+#             for keycode, modMask, newKeysym in data:
+#                 print 'data', keycode, modMask, newKeysym
+            
+#             keycode, keysym, newKeysymName = data
+#             print keycode, keysym, newKeysymName
+    
+    
+    def remapTest(self, newKeysym):
+        self._xdisplay.change_keyboard_mapping(17, [[newKeysym]])
+        self._xdisplay.sync()
+        self.sendEntry(17, 0)
+    
+    def remapKey(self, keycode, modMask, newKeysymName):
+        
+        keysyms = list(self._xdisplay.get_keyboard_mapping(keycode, 1)[0])
+#         entries = self.filterGroup(self._keymap.get_entries_for_keycode(keycode))
+        oldKeysym = self.entry2keysym(keycode, modMask)
+        newKeysym = gdk.keyval_from_name(newKeysymName)  # @UndefinedVariable
+#         entry = self.filterGroup(self._keymap.get_entries_for_keyval(oldKeysym))
+        newKeysyms = [newKeysym if k == oldKeysym else k for k in keysyms]
+        print keycode, newKeysyms
+        self._xdisplay.change_keyboard_mapping(keycode, [newKeysyms])
+        self._xdisplay.sync()
+        
+        
+#         newKeysym = gdk.keyval_from_name(newKeysymName)  # @UndefinedVariable
+# #         oldKeysymName = gdk.keyval_name(oldKeysym)  # @UndefinedVariable
+#         
+#         keysyms = []
+#         for e in entries:
+#             if e[0] == oldKeysym:
+#                 keysyms.append(newKeysym)
+#             else:
+#                 keysyms.append(e[0])
+#         k = keysyms
+#         self._xdisplay.change_keyboard_mapping(keycode, [[k[0], k[1], k[0], k[1], k[2], k[3]]])
+#         self._xdisplay.sync()
+        
+#         oldKeysym = self.entry2name(keycode, modMask)
+#         cmd = 'xmodmap -e "keysym {} = {}"'.format(oldKeysymName, ' '.join(keynames))
+#         print cmd
+#         process = Popen(cmd, shell=True, stdout=PIPE, stderr=PIPE)
+#         for line in process.stderr:
+#             if not line:
+#                 break
+#             print 'remapKey error:', line
     
     def resetMapping(self):
         try:
             process = Popen('setxkbmap -print -verbose 7'.split(), stdout=PIPE, stderr=PIPE)
         except OSError:
-            print 'resetMappig error: install setxkbmap'
-            
-        layout = variant = ''
+            print 'install setxkbmap'
+        
         for line in process.stderr:
-            if line:
-                print 'resetMappig error:', line
-            else:
-                break
+            print 'setxkbmap error: {}'.format(line)
+        
+        layout = variant = ''
         
         for line in process.stdout:
             line = line.rstrip()
@@ -98,8 +156,11 @@ class Display:
         if layout or command:
             try:
                 process = Popen(command, stdout=PIPE, stderr=PIPE)
-            except:
-                print 'resetMappig error: command: {}'.format(' '.join(command))
+            except OSError:
+                print 'install setxkbmap'
+                
+            for line in process.stderr:
+                print 'setxkbmap error: {}'.format(line)
     
     def isModifier(self, keycode):
         return keycode in self._modifierList
@@ -151,10 +212,10 @@ class Display:
         return None
     
     def keysym2entry(self, keysym):
-        infos = self._keymap.get_entries_for_keyval(keysym)
+        infos = gdk.keymap_get_default().get_entries_for_keyval(keysym)  # @UndefinedVariable
         if infos:
             for info in infos:
-                if info[1] == 0:
+                if info[1] == self._group:
                     keycode = info[0]
                     mod = LEVEL_MOD[info[2]]
                     return keycode, mod
@@ -163,9 +224,11 @@ class Display:
     
     def char2keycodes(self, char):
         resp = ()
+        
         keysym = gdk.unicode_to_keyval(ord(char))  # @UndefinedVariable
         if keysym:
             entry = self.keysym2entry(keysym)
+            print entry
             if entry:
                 keycode, mod = entry
                 resp = ((keycode, mod), )
@@ -233,13 +296,36 @@ class Display:
         return None
 
     
+    def slotClipboard(self, clipboard, text, backup):
+        self.sendEntry(*self._entryForPaste)
+        t = Timer(0.01, self.restoreClipboard, (backup,))
+        t.start()
+        
+        
+    def restoreClipboard(self, backup):
+        self._clipboard.request_text(lambda a, b, c: None)
+        if backup:
+            self._clipboard.set_text(backup)
+            self._clipboard.store()
+     
     def sendText(self, text):
-        for char in text:
-            for keycode, mod in self.char2keycodes(char):
-                self.sendKeycode(keycode, mod)
+        backup = self._clipboard.wait_for_text()
+        self._clipboard.set_text(text)
+        self._clipboard.request_text(self.slotClipboard, backup)
+        self._clipboard.store()
+#     
+#     def sendText1(self, text):
+#         for char in text:
+#             for keycode, mod in self.char2keycodes(char):
+#                 self.sendKeycode(keycode, mod)
                 
-                
-    def sendKeycode(self, keycode, mod):
+    def sendKeysym(self, keysym):
+        entry = self.keysym2entry(keysym)
+        if entry:
+#             keycode, modMask = entry
+            self.sendEntry(*entry)
+    
+    def sendEntry(self, keycode, mod):
         self.pressKey(keycode, mod)
         self.releaseKey(keycode, mod)
     
@@ -273,7 +359,13 @@ class Display:
 def name2unicode(name):
     keysym = gdk.keyval_from_name(name)  # @UndefinedVariable
     return gdk.keyval_to_unicode(keysym)  # @UndefinedVariable
-    
+
+def keysym2name(keysym):
+    return gdk.keyval_name(keysym) or ""  # @UndefinedVariable
+
+def keysym2char(keysym):
+    char = gdk.keyval_to_unicode(keysym)  # @UndefinedVariable
+    return unichr(char) if char else ""
 
 def name2Char(name):
     char = name2unicode(name)

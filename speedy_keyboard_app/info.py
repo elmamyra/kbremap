@@ -30,7 +30,8 @@ long_description = "TODO"
 maintainer_email = "elmamyra@gmail.com"
 domain = ""
 url = ""
-license = "GPL"
-
+license_ = "GPL"
 # this one is used everywhere in the application
 appname = "Speedy keyboard"
+
+

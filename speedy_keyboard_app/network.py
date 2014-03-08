@@ -4,16 +4,18 @@ import socket
 import select
 import data as d
 import time
+import logger
+import time
+
 
 class Network(QObject):
-    connected = Signal()
-    socketClosed = Signal()
-    socketPaused = Signal()
-    socketResumed = Signal()
+    messageReceived = Signal(str)
+    serverClosed = Signal()
     def __init__(self, parent):
         super(Network, self).__init__(parent)
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._isConnected = False
+        self.log = logger.Logger('client')
         self.threadRecv = None
         self.timerConnect = QTimer(self)
         self.timerConnect.timeout.connect(self.connect_)
@@ -22,62 +24,62 @@ class Network(QObject):
     def state(self):
         return self._state
     
-    
-    
-    
     def connect_(self):
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.connect((socket.gethostname(), d.PORT))
             self._isConnected = True
             self.timerConnect.stop()
-            self.threadRecv = ThreadRecv(self.socket)
+            self.threadRecv = ThreadRecv(self.socket, self.log)
             self.threadRecv.receivedMessage.connect(self.slotMessage)
             self.threadRecv.start()
-            self.connected.emit()
+            self.log.info('client connected')
+            self.send('send-state')
         except:
             self._isConnected = False
             self.timerConnect.start(100)
 
     
     def slotMessage(self, msg):
-        if msg == 'socketClosed':
+        self.log.recv(msg)
+        if msg == 'socket-closed':
             self._isConnected = False
-            self.socketClosed.emit()
             self.timerConnect.start(100)
-            
-        elif msg == 'pause':
-            self.socketPaused.emit()
+            self.serverClosed.emit()
+        else:
+            self.messageReceived.emit(msg)
         
-        elif msg == 'resume':
-            self.socketResumed.emit()
-    
+        
+        
     def send(self, msg):
         if self._isConnected:
             try:
                 self.socket.send(msg)
+                self.log.send(msg)
             except socket.error, msg:
-                print 'network send: ' + msg
-            
+                self.log.warning('sending failed: %s', msg)
+
     def stop(self):
         if self.threadRecv:
             self.threadRecv.quit()
             self.threadRecv.wait()
         
     def isConnected(self):
-        try:
-            self.socket.send('ping')
-            return True
-        except:
-            return False
+        return self._isConnected
+#         try:
+#             self.socket.send('ping')
+#             return True
+#         except:
+#             return False
         
     def slotUpdated(self):
         self.send('update')
 
 class ThreadRecv(QThread):
     receivedMessage = Signal(str)
-    def __init__(self, conn):
+    def __init__(self, conn, log):
         QThread.__init__(self)
+        self.log = log
         self.conn = conn
         self.conn.setblocking(0)
         self.running = True
@@ -89,17 +91,16 @@ class ThreadRecv(QThread):
         while self.running:
             try:
                 msg = self.conn.recv(128)
-                print msg
             except:
                 time.sleep(0.05)
                 continue
             if not msg:
-                self.receivedMessage.emit('socketClosed')
+                self.receivedMessage.emit('socket-closed')
                 break
             else:
                 self.receivedMessage.emit(msg)
-        print 'client close'
         
+        self.log.info('client close')
         self.conn.close()
 #             
             

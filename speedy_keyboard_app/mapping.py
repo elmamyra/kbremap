@@ -4,6 +4,8 @@ import info
 import random
 import util
 import xml.etree.ElementTree as ET
+from operator import itemgetter
+import unicodedata
 
 
 class MappingItem:
@@ -210,7 +212,7 @@ class Mapping:
         self._name = getUniqueName()
         self._title = getUniqueTile(title)
     
-    def iterKey(self):
+    def iterEntries(self):
         for key in self._mappingItems:
             yield key
     
@@ -263,17 +265,25 @@ def getAllNames():
 def getAllTitles():
     return _getAll('title')
 
-def getAllNamesAndTitles():
+def getAllNamesAndTitles(exceptCurrent=False):
     configPath = util.configPath()
     try:
         root = ET.parse(configPath).getroot()
-        info = [(elt.attrib['name'], elt.attrib['title']) for elt in root]
-        return sorted(info, key=lambda x: x[1].lower())
+        val = []
+        for elt in root:
+            if exceptCurrent and elt.get('isCurrent'):
+                continue
+             
+            val.append((elt.attrib['name'], elt.attrib['title']))
+        return sorted(val, key=lambda v: removeAccents(unicode(v[1].lower())))
     
     except:
         return []
-    return []
     
+def removeAccents(text):
+    nkfd_form = unicodedata.normalize('NFKD', text)
+    only_ascii = nkfd_form.encode('ASCII', 'ignore')
+    return only_ascii
 
 def getUniqueName():
     names = getAllNames()

@@ -3,7 +3,7 @@ from PySide.QtCore import Qt
 from mapping import getAllNamesAndTitles
 
 class DialogNew(QDialog):
-    def __init__(self, parent, currentName):
+    def __init__(self, parent):
         QDialog.__init__(self, parent)
         self.setWindowTitle(self.tr("New mapping"))
         layout = QVBoxLayout() 
@@ -23,8 +23,7 @@ class DialogNew(QDialog):
         
         self.comboFrom.addItem('', None)
         for name, title in getAllNamesAndTitles():
-            if name != currentName:
-                self.comboFrom.addItem(title, name)
+            self.comboFrom.addItem(title, name)
         
         buttonBox.accepted.connect(self.accept)
         buttonBox.rejected.connect(self.reject)
