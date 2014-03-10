@@ -8,6 +8,7 @@ from keyboardview import KeyboardView
 from dialogNew import DialogNew
 import network
 import mapping
+import data as cst
 import icons
 import info
 import os, sys
@@ -107,13 +108,23 @@ class MainWindow(QMainWindow):
             self.restoreState(settings.value('windowState'))
         else:
             self.resize(920, 340)
-            
+        
+        
         self.keyboardModel = settings.value('keyboardModel', 'generic_105')
         self.keyboardEditor.setModel(self.keyboardModel)
+        mode = int(settings.value('mode', cst.SHORTCUT_MODE))
+        for act in self.action.modeGroupAction.actions():
+            if act.data() == mode:
+                act.setChecked(True)
+                break
+        
         self._mapping = mapping.Mapping()
         self._mapping.loadCurrent()
         if not self._mapping.isValid():
             self.keyboardEditor.setEnabled(False)
+            
+        self.keyboardEditor.setMode(mode)
+        self.keyboardEditor.loadLayout()
         
         self.action.loadAction.setEnabled(bool(mapping.getAllNames()))
         autoStart = {'true': True, 'false': False}[settings.value('autoStart', 'false')]
@@ -127,7 +138,7 @@ class MainWindow(QMainWindow):
         menuFile.addAction(a.newAction)
         menuFile.addMenu(a.loadMenu)
         menuFile.addAction(a.renameAction)
-        menuFile.addAction(a.clearAction)
+#         menuFile.addAction(a.clearAction)
         menuFile.addAction(a.deleteAction)
         menuFile.addSeparator()
         menuFile.addAction(a.importAction)
@@ -178,6 +189,10 @@ class MainWindow(QMainWindow):
             modAct = ag.addAction(QAction(title, self, checkable=True, checked=name==self.keyboardModel))
             modAct.setData(name)
             keyboardModel.addAction(modAct)
+            
+        menuMode = menuKeyboard.addMenu(self.tr("Mode"))
+        menuMode.addAction(a.shortcutModeAction)
+        menuMode.addAction(a.remappingModeAction)
         self.setMenuBar(menu)
         self.enableAction()
     
@@ -200,6 +215,9 @@ class MainWindow(QMainWindow):
         toolBar.addAction(a.daemonStopAction)
         toolBar.addAction(a.syncAction)
         toolBar.addSeparator()
+        toolBar.addAction(a.shortcutModeAction)
+        toolBar.addAction(a.remappingModeAction)
+        toolBar.addSeparator()
         toolBar.addWidget(self.labelState)
         
         
@@ -210,7 +228,7 @@ class MainWindow(QMainWindow):
             act.setEnabled(val)
     
     def updateTitle(self):
-        mappingTitle = self._mapping.title() or self.tr("Untitled")
+        mappingTitle = self._mapping.title or self.tr("Untitled")
         title = ' '.join((mappingTitle, '-', info.name))
         self.setWindowTitle(title)
     
@@ -221,7 +239,7 @@ class MainWindow(QMainWindow):
         self.mappingActionGroup = ag = QActionGroup(self, exclusive=True)
         
         for name, title in mapping.getAllNamesAndTitles():
-            act = ag.addAction(QAction(title, self, checkable=True, checked=name==self._mapping.name()))
+            act = ag.addAction(QAction(title, self, checkable=True, checked=name==self._mapping.name))
             act.setData(name)
             m.addAction(act)
         ag.triggered.connect(self.slotLoad)
@@ -231,12 +249,15 @@ class MainWindow(QMainWindow):
     def mapping(self):   
         return self._mapping
         
-        
+    
+    
     def slotKeyboardModel(self, act):
         self.keyboardEditor.setModel(act.data())
     
     def slotModified(self):
-        self.save()
+#         self.network.send('update')
+        QTimer.singleShot(500, lambda: self.network.send('update'))
+#         self.save()
 
     def slotNew(self):
         dlg = DialogNew(self)
@@ -260,8 +281,8 @@ class MainWindow(QMainWindow):
         self.load(act.data())
         self.keyboardEditor.loadLayout()
     
-    def save(self):
-        self._mapping.save()
+#     def save(self):
+#         self._mapping.save()
         
     def slotRename(self):
         newName, isOk = QInputDialog.getText(self, self.tr("Rename"), self.tr("Enter the new name"))
@@ -269,21 +290,21 @@ class MainWindow(QMainWindow):
             self._mapping.rename(newName)
             self.updateTitle()
     
-    def slotClear(self):
-        if self._mapping.isValid():
-            mess = self.tr("do you really want delete all items?").format(name=self._mapping.title())
-            resp = QMessageBox.question(self, self.tr("Warning"), mess, QMessageBox.Yes, QMessageBox.No)
-            if resp == QMessageBox.No:
-                return
-            
-            self._mapping.clearItems()
-            self.keyboardEditor.loadLayout()
-            self.save()
+#     def slotClear(self):
+#         if self._mapping.isValid():
+#             mess = self.tr("do you really want delete all items?").format(name=self._mapping.title)
+#             resp = QMessageBox.question(self, self.tr("Warning"), mess, QMessageBox.Yes, QMessageBox.No)
+#             if resp == QMessageBox.No:
+#                 return
+#             
+#             self._mapping.clearItems()
+#             self.keyboardEditor.loadLayout()
+#             self.save()
         
     def slotDelete(self):
         if self._mapping.isValid():
             mess = self.tr("do you really want delete this \
-                        layout <b>{name}</b> and all its items?").format(name=self._mapping.title())
+                        layout <b>{name}</b> and all its items?").format(name=self._mapping.title)
             resp = QMessageBox.question(self, self.tr("Warning"), mess, QMessageBox.Yes, QMessageBox.No)
             if resp == QMessageBox.No:
                 return
@@ -313,7 +334,8 @@ class MainWindow(QMainWindow):
         self.network.send('pause')
         
     def slotSync(self):
-        self.updated.emit()
+        self.network.send('update')
+#         self.updated.emit()
         
         
     def slotAutoStart(self, val):
@@ -337,20 +359,24 @@ class MainWindow(QMainWindow):
             if os.path.exists(filePath):
                 os.remove(filePath)
     
-    def slotModeChange(self):
-        pass
+    def slotModeChanged(self, act):
+        self.keyboardEditor.setMode(act.data())
+        self.keyboardEditor.loadLayout()
     
+    def currentMode(self):
+        return self.action.modeGroupAction.checkedAction().data()
     
     def closeEvent(self, event):
         self.network.stop()
-        settings = QSettings()
-        settings.setValue("geometry", self.saveGeometry())
-        settings.setValue("windowState", self.saveState())
-        settings.setValue("keyboardModel", self.modelActionGroup.checkedAction().data())
-        if self._mapping.isValid():
-            settings.setValue('mapping', self._mapping.name())
+        s = QSettings()
+        s.setValue("geometry", self.saveGeometry())
+        s.setValue("windowState", self.saveState())
+        s.setValue("keyboardModel", self.modelActionGroup.checkedAction().data())
+        s.setValue("mode", self.currentMode())
+#         if self._mapping.isValid():
+#             s.setValue('mapping', self._mapping.name())
             
-        settings.setValue('autoStart', self.action.autoStartAction.isChecked())
+        s.setValue('autoStart', self.action.autoStartAction.isChecked())
         
         QMainWindow.closeEvent(self, event)
 
@@ -373,7 +399,7 @@ class Action(QObject):
         
         self.newAction = act(self.tr("New..."), parent.slotNew, Qt.Key_N, 'document-new')
         self.renameAction = act(self.tr("Rename..."), parent.slotRename, Qt.Key_R, 'go-jump')
-        self.clearAction = act(self.tr("Clear"), parent.slotClear, Qt.Key_C, 'edit-clear')
+#         self.clearAction = act(self.tr("Clear"), parent.slotClear, Qt.Key_C, 'edit-clear')
         self.deleteAction = act(self.tr("Delete"), parent.slotDelete, Qt.Key_D, 'edit-delete')
         self.importAction = act(self.tr("Import..."), parent.slotImport, Qt.Key_I, 'folder-open')
         self.exportAction = act(self.tr("Export..."), parent.slotExport, Qt.Key_X, 'document-save-as')
@@ -389,10 +415,13 @@ class Action(QObject):
         self.autoStartAction.setCheckable(True)
         self.autoStartAction.toggled.connect(parent.slotAutoStart)
         self.modeGroupAction = mg = QActionGroup(parent)
-        self.modeGroupAction.triggered.connect(parent.slotModeChange)
-        self.remappingModeAction = mg.addAction(self.tr("Remapping"))
-        self.shortcutModeAction = mg.addAction(self.tr("Shortcut"))
-        
+        self.modeGroupAction.triggered.connect(parent.slotModeChanged)
+        self.shortcutModeAction = mg.addAction(icons.get('shortcuts'), self.tr("Shortcut"))
+        self.shortcutModeAction.setCheckable(True)
+        self.shortcutModeAction.setData(cst.SHORTCUT_MODE)
+        self.remappingModeAction = mg.addAction(icons.get('keys'), self.tr("Remapping"))
+        self.remappingModeAction.setCheckable(True)
+        self.remappingModeAction.setData(cst.REMAPPING_MODE)
 
 def start():
     app = QApplication(sys.argv)
