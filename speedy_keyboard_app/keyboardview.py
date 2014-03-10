@@ -27,7 +27,7 @@ from PySide.QtGui import *
 #from . import util
 #from . import data
 from Xtools import display
-from mapping import MappingItem
+from mapping import ShortcutItem, RemapItem
 import keyboardmodel
 import dialogEditor
 import util
@@ -45,10 +45,12 @@ class KeyBase(QGraphicsRectItem):
         self._keycode = keycode
         self.content = None
         self._color = QColor()
-        self._mItem = None
+        self._shortcutItem = None
+        self._remapItem = None
         self._isUsed = True
         self._isKeypadKey = False
         self._modifier = 0
+        self._mode = d.SHORTCUT_MODE
         self.font = QFont()
         pen = QPen(util.keyboardColors('border'))
         pen.setWidth(2)
@@ -65,8 +67,11 @@ class KeyBase(QGraphicsRectItem):
     def keycode(self):
         return self._keycode
     
-    def mItem(self):
-        return self._mItem
+    def shortcutItem(self):
+        return self._shortcutItem
+    
+    def remapItem(self):
+        return self._remapItem
     
     def modifier(self):
         return self._modifier
@@ -99,9 +104,8 @@ class KeyBase(QGraphicsRectItem):
         if self.content:
             self.scene().removeItem(self.content)
             self.content = None
-            self._mItem = None
-#             if self._isUsed:
-#                 print 'used'
+            self._shortcutItem = None
+            self._remapItem = None
         self.setEnabled(True)
 #             self.setAcceptHoverEvents(True)
 #             self.setAcceptedMouseButtons(Qt.LeftButton | Qt.RightButton)
@@ -122,13 +126,15 @@ class KeyBase(QGraphicsRectItem):
         self.setBrush(brush)
         
     def setMItemTooltip(self):
+        return
         if self._mItem:
             t = self._mItem.type
             data = self._mItem.data
             name = d.DATA_TYPE[t].title
             val = ''
             if t == d.TEXT:
-                val = u'{}<br/>use {}'.format(data[0], self.tr('clipboard') if data[1] else self.tr('system'))
+                pass
+#                 val = u'{}<br/>use {}'.format(data[0], self.tr('clipboard') if data[1] else self.tr('system'))
             elif t == d.SHORTCUT:
                 val = data[2]
             elif t == d.REMAPPING:
@@ -143,8 +149,9 @@ class KeyBase(QGraphicsRectItem):
             self.setToolTip(tooltip)
     
     def pixmap(self):
-        if self._mItem:
-            if self._mItem.displayType == d.GR_ICON:
+        pix = None
+        if self._shortcutItem:
+            if self._shortcutItem.displayType == d.GR_ICON:
                 pix = self.content.pixmap()
             else:
                 fontMetric = QFontMetrics(self.content.font())
@@ -158,8 +165,10 @@ class KeyBase(QGraphicsRectItem):
                 y = -rect.y() + (size.height() - rect.height())/2
                 painter.drawText(x, y, self.content.toPlainText())
                 painter.end()
-            return pix
-        return None
+        
+        elif self._remapItem:
+            pix = self.content.pixmap()
+        return pix
     
     def select(self):
         self.updateColor(QColor(self._color.rgb() + 0x0E0E0E), 0x222222)
@@ -216,16 +225,99 @@ class KeyBase(QGraphicsRectItem):
         self.content.setPos(self.getCenter(self.content.boundingRect()))
         self.setToolTip(tooltip)
     
-    def setMitem(self, mItem):
-        val = mItem.displayValue
-        if mItem.displayType == d.GR_TEXT:
+    def setMapChars(self, chars, names):
+        size = self.rect().size().toSize()
+        standartSize = self.view().keySize()
+        hmargin = int(standartSize / 15.0)
+        vmargin = int(size.height() / 7.0)
+        metric = QFontMetrics(self.font)
+        pix = QPixmap(size)
+        pix.fill(Qt.transparent)
+        painter = QPainter(pix)
+        painter.setFont(self.font)
+        painter.setPen(self.pen())
+        
+        def getPos(i, rect):
+            return QPoint(*((hmargin, size.height() - vmargin),
+                        (hmargin, rect.height() + vmargin),
+                        (size.width()/2 , size.height() - vmargin),
+                        (size.width()/2 , rect.height() + vmargin))[i])
+        
+        if len(chars) == 1:
+            self.font.setPixelSize(standartSize / 4.5)
+            metric = QFontMetrics(self.font)
+            char = metric.elidedText(chars[0] or names[0], Qt.ElideRight, size.width()- hmargin*2)
+            rect = metric.tightBoundingRect(char)
+            posX = (size.width() - rect.width()) / 2
+            posY = (size.height() + rect.height()) / 2
+            painter.setFont(self.font)
+            painter.drawText(QPoint(posX, posY), char)
+        elif len(chars) == 2:
+            self.font.setPixelSize(standartSize / 5)
+            metric = QFontMetrics(self.font)
+            char1 = metric.elidedText(chars[0] or names[0], Qt.ElideRight, size.width()- hmargin*2)
+            char2 = metric.elidedText(chars[1] or names[1], Qt.ElideRight, size.width()- hmargin*2)
+            rect1 = metric.tightBoundingRect(char1)
+            pos1 = getPos(0, rect1)
+            rect2 = metric.tightBoundingRect(char2)
+            pos2 = getPos(1, rect2)
+            painter.setFont(self.font)
+            painter.drawText(pos1, char1)
+            painter.drawText(pos2, char2)
+        else:
+            for i, char in enumerate(chars):
+                char = char or names[i]
+                fontCoef = 3.5 if len(char) == 1 else 5.5
+                self.font.setPixelSize(standartSize / fontCoef)
+#                 if len(char) == 1:
+#                     self.font.setPixelSize(standartSize / 3.5)
+#                 else:
+#                     self.font.setPixelSize(standartSize / 5.5)
+                
+                metric = QFontMetrics(self.font)
+#                 if char.startswith('dead_'):
+#                     char = 'dead'
+
+                char = metric.elidedText(char, Qt.ElideRight, size.width()/2.0)
+                
+                
+                painter.setFont(self.font)
+                painter.drawText(getPos(i, metric.tightBoundingRect(char)), char)
+        
+        painter.end()
+        
+        self.content = QGraphicsPixmapItem(pix, self)
+        
+        tooltip = ""
+        for char, name in zip(chars, names):
+            tooltip += u"<b>{}</b> {}<br/>".format(char, name)
+         
+        self.setToolTip(tooltip)
+    
+    def setShortcutItem(self, item):
+        self._remapItem = None
+        val = item.displayValue
+        if item.displayType == d.GR_TEXT:
             self.setText(val)
         else:
             self.setIcon(val, sizeCoef=0.8, isPath=True)
-        self._mItem = mItem
+        self._shortcutItem = item
         self.setColor('content')
         
         self.setMItemTooltip()
+        
+    def setRemapItem(self, item):
+        self._shortcutItem = None
+        self._remapItem = item
+        self.setColor('content')
+        
+    def item(self):
+        return self._shortcutItem or self._remapItem
+        
+    def hasItem(self):
+        return bool(self._shortcutItem or self._remapItem)
+    
+    
     
     def mousePressEvent(self, event):
         if event.buttons() == Qt.LeftButton:
@@ -246,7 +338,7 @@ class KeyBase(QGraphicsRectItem):
         self.view().keyReleased.emit(event.scenePos())
         
     def mouseMoveEvent(self, event):
-        if self._mItem:
+        if self.hasItem():
             self.view().keyMove.emit(event.scenePos())
         else:
             event.ignore()
@@ -323,13 +415,15 @@ class KeyboardView(QGraphicsView):
         self.setRenderHint(QPainter.TextAntialiasing)
         self.setMinimumSize(400, 180)
         self.setScene(QGraphicsScene(self))
-        self.display = display.Display()
+        self._display = display.Display()
         self._keys = []
         self._modifierKeys = []
         self._space = 5.0
         self._keySize = 40.0
         self.model = ()
-        self._currentModifier = self.display.numMask()
+        self._mode = d.SHORTCUT_MODE
+#         self._subMapping = self.mapping().shortcut
+        self._currentModifier = self._display.numMask()
         self.currentPressed = None
         self.currentHover = None
         
@@ -366,11 +460,11 @@ class KeyboardView(QGraphicsView):
                     key = Key(self.scene(), keycode)
                 key.setSize(w, h)
                     
-                if self.display.isModifier(keycode):
-                    key.setModifier(self.display.getModMask(keycode))
+                if self._display.isModifier(keycode):
+                    key.setModifier(self._display.getModMask(keycode))
                     self._modifierKeys.append(key)
                     
-                if self.display.isKeypadKey(keycode):
+                if self._display.isKeypadKey(keycode):
                     key.setIsKeypadKey(True)
                 
                 if info == km.EMPTY:
@@ -383,8 +477,11 @@ class KeyboardView(QGraphicsView):
             x = 0
     
     def loadLayout(self):
+        meth = self.loadShortKey if self._mode == d.SHORTCUT_MODE else self.loadRemapKey
         for key in self._keys:
-            self.loadKey(key)
+            if not key.isUsed():
+                continue
+            meth(key)
             key.setEnabled_(self.isEnabled())
             
             
@@ -394,17 +491,36 @@ class KeyboardView(QGraphicsView):
 #         print 'view enable'
 #         self.setEnabled(val)
        
-    def loadKey(self, key):
-        if not key.isUsed():
-            return
+    def loadRemapKey(self, key):
+        key.clear()
+        item = self._subMapping[key.keycode()]
+        if item:
+            chars, names = [], []
+            for keysym in item.keysyms:
+                chars.append(display.keysym2char(keysym))
+                names.append(display.keysym2name(keysym))
+                
+            while not names[-1]:
+                chars.pop(-1)
+                names.pop(-1)
+            key.setRemapItem(item)
+            key.setMapChars(chars, names)
+                
+                
+        else:
+            charsNames = self._display.keycode2charsAndNames(key.keycode())
+            key.setColor('default')
+            key.setMapChars(*charsNames)
+       
+    def loadShortKey(self, key):
         key.clear()
 #         key.setEnabled(True)
-        char, name = self.display.keycode2char(key.keycode(), self._currentModifier)
+        char, name = self._display.keycode2char(key.keycode(), self._currentModifier)
         keycode = key.keycode()
-        mods = self.display.removeNumLockMask(keycode, self._currentModifier)
-        item = self.mapping()[keycode, mods]
+        mods = self._display.removeNumLockMask(keycode, self._currentModifier)
+        item = self._subMapping[keycode, mods]
         if item:
-            key.setMitem(item)
+            key.setShortcutItem(item)
         else:
             if char:
                 key.setText(char)
@@ -490,49 +606,77 @@ class KeyboardView(QGraphicsView):
         return self.mainWindow.mapping()
     
     def slotModifierPressed(self, mod):
-        self.toggleModifier(mod)
-        self.loadLayout()
+        if self._mode == d.SHORTCUT_MODE:
+            self.toggleModifier(mod)
+            self.loadLayout()
         
     def toggleModifier(self, mod):
         if self._currentModifier & mod:
             self._currentModifier ^= mod
         else:
             self._currentModifier |= mod
-        
+            
+    def display(self):
+        return self._display
     
     def slotEditKey(self, key):
-        if key.isModifier():
-            return
-        
-        dlg = dialogEditor.DialogEditor(self, key.mItem())
-        if dlg.exec_():
-            item = MappingItem(key.keycode(), self.display.removeNumLockMask(key.keycode(), self._currentModifier), *dlg.getData())
-            self.mapping().addItem(item)
-            key.setMitem(item)
-            self.keyModified.emit()
-        
+        if self._mode == d.SHORTCUT_MODE:
+            if key.isModifier():
+                return
+            
+            dlg = dialogEditor.ShortcutDialog(self, key.shortcutItem())
+            if dlg.exec_():
+                item = ShortcutItem(key.keycode(), self._display.removeNumLockMask(key.keycode(), self._currentModifier), *dlg.getData())
+                self._subMapping.addItem(item)
+                self.loadShortKey(key)
+#                 key.setShortcutItem(item)
+                self._subMapping.save()
+#                 self.keyModified.emit()
+        else:
+            dlg = dialogEditor.RemappingDialog(self, key.keycode(), key.remapItem())
+            if dlg.exec_():
+                item = RemapItem(key.keycode(), dlg.keysyms())
+                self._subMapping.addItem(item)
+                key.setRemapItem(item)
+                self.loadRemapKey(key)
+                self._subMapping.save()
+#                 key.set
+                
+                
     
     def slotKeyReleased(self, pos):
         key = self.keyAt(pos)
-        if self.currentPressed and key and key.isEnabled() and not key.isModifier():
-            sourceMItem = self.mapping().popItem(self.currentPressed)
-            sourceModifiers = sourceMItem.modifiers
-            sourceKeycode = sourceMItem.keycode
+        if self.currentPressed and key and key.isEnabled() and \
+                    (not key.isModifier() or self._mode == d.REMAPPING_MODE):
+                
+            sourceMItem = self._subMapping.popItem(self.currentPressed)
+#             sourceModifiers = sourceMItem.modifiers
+#             sourceKeycode = sourceMItem.keycode
             cibleKey = key
-            modMask = self.display.removeNumLockMask(cibleKey.keycode(), self._currentModifier)
-            cibleMItem = self.mapping().popItemFromKey(cibleKey.keycode(), modMask)
+            if self._mode == d.SHORTCUT_MODE:
+                modMask = self._display.removeNumLockMask(cibleKey.keycode(), self._currentModifier)
+                mapKey = (cibleKey.keycode(), modMask)
+            else:
+                mapKey = cibleKey.keycode()
+            cibleMItem = self._subMapping.popItemFromKey(mapKey)
             newCibleMItem = sourceMItem
             newCibleMItem.keycode = cibleKey.keycode()
-            newCibleMItem.modifiers = modMask
-            self.mapping().addItem(newCibleMItem)
+            if self._mode == d.SHORTCUT_MODE:
+                newCibleMItem.modifiers = modMask
+
+            self._subMapping.addItem(newCibleMItem)
             
             if cibleMItem:
                 newSourceMItem = cibleMItem
-                newSourceMItem.keycode = sourceKeycode
-                newSourceMItem.modifiers = sourceModifiers
-                self.mapping().addItem(newSourceMItem)
+                if self._mode == d.SHORTCUT_MODE:
+                    newSourceMItem.keycode = sourceMItem.keycode
+                    newSourceMItem.modifiers = sourceMItem.modifiers
+                else:
+                    newSourceMItem.keysyms = sourceMItem.keysyms
+                self._subMapping.addItem(newSourceMItem)
                 
             self.loadLayout()
+            self._subMapping.save()
             self.keyModified.emit()
             
             
@@ -554,11 +698,11 @@ class KeyboardView(QGraphicsView):
                 if key and key.isUsed() and not key.isModifier():
                     key.select()
                     self.currentHover = key
-                    
-        pix = key.pixmap()
-        if pix:
-            self.setCursor(QCursor(pix))
-            self.currentPressed = key.mItem()
+        else:           
+            pix = key.pixmap()
+            if pix:
+                self.setCursor(QCursor(pix))
+            self.currentPressed = key.item()
             self.currentHover = key
     
     def slotContext(self, key, pos):
@@ -566,18 +710,18 @@ class KeyboardView(QGraphicsView):
         editAction = QAction(icons.get('document-edit'), self.tr("Edit..."), self)
         deleteAction = QAction(icons.get('list-remove'), self.tr("Remove"), self)
         menu.addAction(editAction)
-        if key.mItem():
+        if key.item():
             menu.addAction(deleteAction)
 
         act = menu.exec_(pos)
         if act == editAction:
             self.keyDoubleClicked.emit(key)
         elif act == deleteAction:
-            if key.mItem():
-                self.mapping().popItem(key.mItem())
+            if key.item():
+                self._subMapping.popItem(key.item())
                 key.clear()
-                self.keyModified.emit()
-                self.loadKey(key)
+                self._subMapping.save()
+                self.loadLayout()
                 
         
     def keyAt(self, pos):
@@ -591,7 +735,14 @@ class KeyboardView(QGraphicsView):
         self.hNumKey, self.vNumKey = self.model[0]
         if self.isVisible():
             self.updateSize()
-            self.loadLayout()
+            
+    def setMode(self, mode):
+        self._mode = mode
+        if mode == d.SHORTCUT_MODE:
+            self._subMapping = self.mapping().shortcut
+        else:
+            self._subMapping = self.mapping().remap
+#             self.loadLayout()
     
     def keys(self):
         return self._keys
@@ -626,8 +777,8 @@ class KeyboardView(QGraphicsView):
     
     def keyPressEvent(self, event):
         keycode = event.nativeScanCode()
-        if keycode in self.display.modifiersKeycodeList():
-            mod = self.display.getModMask(keycode)
+        if keycode in self._display.modifiersKeycodeList():
+            mod = self._display.getModMask(keycode)
             self.modifierPressed.emit(mod)
                 
                 
