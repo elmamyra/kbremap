@@ -6,7 +6,9 @@ from .. import logger
 import threading, sys
 from subprocess import Popen, call
 from .. import info
+import pynotify
 
+pynotify.init("Basic")
 PORT = 22347
 
 # class Signal(object):
@@ -45,6 +47,7 @@ class Daemon(object):
             self.handler.start()
             th = threading.Thread(target=self.start)
             th.start()
+            self.notify('server started')
             return ''
         except socket.error, msg:
             self.log.warning('connection failed: %s', str(msg))
@@ -82,13 +85,20 @@ class Daemon(object):
                         self.quit_()
                     elif data == 'pause':
                         self.pause()
+                        
                     elif data == 'send-state':
                         self.sendState()
 
         for client in self.input:
             client.close()
         
+        self.notify('server closed')
         self.log.info('server closed')
+        
+    def notify(self, msg):
+        n = pynotify.Notification(info.name,
+          msg)
+        n.show()
     
     def update(self):
         self.handler.update()
@@ -101,11 +111,13 @@ class Daemon(object):
             self._state = 'paused'
             self.log.action('server paused')
             self.sendState()
+            self.notify('server paused')
         else:
             self.handler.resume()
             self._state = 'running'
             self.log.info('server resumed')
             self.sendState()
+            self.notify('server resumed')
             
     def quit_(self):
         self.running = False
