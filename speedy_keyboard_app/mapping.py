@@ -8,7 +8,7 @@ from operator import itemgetter
 import unicodedata
 
 
-class MappingItem:
+class ShortcutItem:
     def __init__(self, keycode, modifiers, typ, data, displayType, displayValue):
         self.keycode = keycode
         self.modifiers = modifiers
@@ -40,7 +40,7 @@ class MappingItem:
         displayType = int(elt.get('displayType'))
         displayValue = elt.get('displayValue')
         
-        return MappingItem(keycode, modifiers, typ, data, displayType, displayValue)
+        return ShortcutItem(keycode, modifiers, typ, data, displayType, displayValue)
             
             
         
@@ -52,13 +52,13 @@ class MappingItem:
                   'displayType': str(self.displayType),
                   'displayValue': unicode(self.displayValue)
                   }
-        item = ET.Element('item', attrib)
+        item = ET.Element('shortcutItem', attrib)
         dataElt = ET.Element('data')
         data = self.data
         if not isinstance(data, (list, tuple)):
             data = (data,)
-        for i, d in enumerate(data):
-            dataSub = ET.Element('value'+str(i+1))
+        for d in data:
+            dataSub = ET.Element('value')
             if d is not None:
                 dataSub.text = unicode(d)
                 dataType = d.__class__.__name__
@@ -68,160 +68,243 @@ class MappingItem:
         return item
         
     def __repr__(self):
-        return "<mapping.MappingItem keycode={}, modifiers={}, type={}, data={}>"\
+        return "<mapping.ShortcutItem keycode={}, modifiers={}, type={}, data={}>"\
                     .format(self.keycode, hex(self.modifiers), self.type, self.data)
 
 
+class RemapItem:
+    def __init__(self, keycode, keysyms=[]):
+        self.keycode = keycode
+        self.keysyms = keysyms
+        
+    @staticmethod
+    def fromXml(elt):
+        keycode = int(elt.get('keycode'))
+        keysyms = []
+        for k in elt:
+            keysyms.append(int(k.text, 16))
+        
+        return RemapItem(keycode, keysyms)
+            
+    
+    def toXml(self):
+        elt = ET.Element('remappingItem', {'keycode': str(self.keycode)})
+        for keysym in self.keysyms:
+            keyElt = ET.Element('keysym')
+            keyElt.text = hex(keysym)
+            elt.append(keyElt)
+        return elt
+    
+    def __getitem__(self, index):
+        return self.keysyms[index]
+    
+    def __len__(self):
+        return len(self.keysyms)
+    
+    def __repr__(self):
+        return "<mapping.RemapItem keycode={}, keysym={}>"\
+                    .format(self.keycode, ', '.join(map(str, self.keysyms)))
+
+class SubMappingBase:
+    def __init__(self, parent):
+        self._parent = parent
+        self._items = {}
+        
+    def clear(self):
+        self._items = {}
+        
+    def getItem(self, key):
+        return self._items.get(key)
+        
+    def toXml(self):
+        elt = ET.Element(self.tag)
+        for item in self._items.values():
+            elt.append(item.toXml())
+        return elt
+    
+    def setItems(self, items):
+        self._items = items
+    
+    def fromXml(self, elt):
+        self._items = {}
+        for item in elt:
+            self.addItem(self.itemClass.fromXml(item))
+        return self
+    
+    def save(self):
+        if self._parent.name:
+            tree = loadTree()
+            root = tree.getroot()
+            mapping = root.find("mapping[@name='{}']".format(self._parent.name))
+            if mapping is None:
+                mapping = self._parent.emptyXmlMapping()
+                root.append(mapping)
+            subMapping = mapping.find(self.tag)
+            if subMapping is not None:
+                mapping.remove(subMapping)
+            
+            elt = self.toXml()
+            mapping.append(elt)
+            indent(root)
+            writeTree(tree)
+            
+    def popItemFromKey(self, key):
+        return self._items.pop(key, None)
+        
+    def popItem(self, item):
+        for k, v in self._items.items():
+            if v == item:
+                return self._items.pop(k)
+        return None
+    
+    def __getitem__(self, key):
+        return self._items.get(key)
+    
+    def __iter__(self):
+        for item in self._items.values():
+            yield item
+    
+    
+class ShortcutSubMapping(SubMappingBase):
+    tag = 'shortcuts'
+    itemClass = ShortcutItem
+    def __init__(self, parent):
+        SubMappingBase.__init__(self, parent)
+        pass
+    
+    def addItem(self, item):
+        self._items[(item.keycode, item.modifiers)] = item
+        
+    
+            
+    
+
+class RemapSubMapping(SubMappingBase):
+    tag = 'remapping'
+    itemClass = RemapItem
+    def __init__(self, parent):
+        SubMappingBase.__init__(self, parent)
+        pass
+    
+    def addItem(self, item):
+        self._items[item.keycode] = item
+        
+    
+    
+
 class Mapping:
     def __init__(self, name=''):
-        self._name = ''
-        self._title = ''
-        self._mappingItems = {}
+        self.name = ''
+        self.title = ''
+        self.shortcut = ShortcutSubMapping(self)
+        self.remap = RemapSubMapping(self)
         if name:
             self.load(name)
     
-    def name(self):
-        return self._name
-    
-    def title(self):
-        return self._title
-    
-    def setName(self, name):
-        self._name = name
-        
-    def setTitle(self, title):
-        self._title = title
+    def create(self, title, from_=None):
+        self.clear()
+        if from_:
+            self.load(from_)
+            
+        self.name = getUniqueName()
+        self.title = getUniqueTile(title)
         
     
-    def addItem(self, item):
-        self._mappingItems[(item.keycode, item.modifiers)] = item
-        
-    def getItem(self, keycode, modifiers):
-        return self._mappingItems.get((keycode, modifiers))
+    def save(self):
+        if self.name:
+            tree = loadTree()
+            root = tree.getroot()
+            oldMapping = root.find("mapping[@name='{}']".format(self.name))
+            if oldMapping is not None:
+                root.remove(oldMapping)
+            elt = self.toXml()
+            self.setIsCurrent(root, elt)
+            root.append(elt)
+            indent(root)
+            writeTree(tree)
     
-    def popItemFromKey(self, keycode, modifiers):
-        return self._mappingItems.pop((keycode, modifiers), None)
-        
-    def popItem(self, item):
-        for k, v in self._mappingItems.items():
-            if v == item:
-                return self._mappingItems.pop(k)
-        return None
+    def toXml(self):
+        elt = self.emptyXmlMapping()
+        elt.append(self.shortcut.toXml())
+        elt.append(self.remap.toXml())
+        return elt
+    
+    def clear(self):
+        self.name = ''
+        self.title = ''
+        self.shortcut.clear()
+        self.remap.clear()
     
     def loadCurrent(self):
-        tree = self.loadTree()
+        tree = loadTree()
         root = tree.getroot()
         currentElt = root.find("mapping[@isCurrent]")
         if currentElt is not None:
             self.load(currentElt.get('name'))
             return True
         return False
-        
-    
+         
+            
     def load(self, name):
-        tree = self.loadTree()
+        tree = loadTree()
         root = tree.getroot()
         mappingElt = root.find("mapping[@name='{}']".format(name))
         if mappingElt is not None:
-            self._name = name
-            self._title = mappingElt.get('title')
-            currentElt = root.find("mapping[@isCurrent]")
-            if currentElt is not None:
-                currentElt.attrib.pop('isCurrent')
-#             mappingElt.attrib.pop('isCurrent')
-            mappingElt.set('isCurrent', 'true')
-            self.write(tree)
-            self._mappingItems = {}
-            for itemElt in mappingElt:
-                item = MappingItem.fromXml(itemElt)
-                self._mappingItems[(item.keycode, item.modifiers)] = item
+            self.name = name
+            self.title = mappingElt.get('title')
+            self.setIsCurrent(root, mappingElt)
+            writeTree(tree)
+            self.shortcut.fromXml(mappingElt.find(ShortcutSubMapping.tag))
+            self.remap.fromXml(mappingElt.find(RemapSubMapping.tag))
             return True
         return False
     
-    def clearItems(self):
-        self._mappingItems = {}
+    def setIsCurrent(self, root, elt):
+        for e in root.findall("mapping[@isCurrent]"):
+            e.attrib.pop('isCurrent')
+            
+        elt.set('isCurrent', 'true')
+    
+    def emptyXmlMapping(self):
+        return ET.Element('mapping', attrib={'name': self.name, 'title': self.title})
     
     def rename(self, title):
-        self._title = title
-        tree = self.loadTree()
+        self.title = title
+        tree = loadTree()
         root = tree.getroot()
-        mappingElt = root.find("mapping[@name='{}']".format(self._name))
+        mappingElt = root.find("mapping[@name='{}']".format(self.name))
         if mappingElt is not None:
             mappingElt.set('title', title)
-            tree.write(util.configPath(), encoding="utf-8", xml_declaration=True)
-    
-    def write(self, tree):
-        tree.write(util.configPath(), encoding="utf-8", xml_declaration=True)
-    
+            writeTree(tree)
+            
     def delete(self):
-        if self._name:
-            tree = self.loadTree()
+        if self.name:
+            tree = loadTree()
             root = tree.getroot()
-            mappingElt = root.find("mapping[@name='{}']".format(self._name))
+            mappingElt = root.find("mapping[@name='{}']".format(self.name))
             if mappingElt is not None:
                 root.remove(mappingElt)
-                indent(root)
-                tree.write(util.configPath(), encoding="utf-8", xml_declaration=True)
-                self._name = ''
-                self._title = ''
-                self._mappingItems = {}
-    
-    def save(self):
-        if self._name:
-            tree = self.loadTree()
-            root = tree.getroot()
-            oldMapping = root.find("mapping[@name='{}']".format(self._name))
-            if oldMapping is not None:
-                root.remove(oldMapping)
-            elt = self.toXml()
-            elt.set('isCurrent', 'true')
-            root.append(elt)
-            indent(root)
-            tree.write(util.configPath(), encoding="utf-8", xml_declaration=True)
-    
+#                 indent(root)
+                writeTree(tree)
+                self.clear()
+                
     def isValid(self):
-        return bool(self._name) and bool(self._title)
+        return bool(self.name) and bool(self.title)
     
     
-    def loadTree(self):
-        configPath = util.configPath()
-        try:
-            tree = ET.parse(configPath)
-        except:
-            elt = ET.Element('mappingList', attrib={'version': '1.0'})
-            tree = ET.ElementTree(elt)
-        return tree
+
+def writeTree(tree):
+    tree.write(util.configPath(), encoding="utf-8", xml_declaration=True)
+
+def loadTree():
+    configPath = util.configPath()
+    try:
+        tree = ET.parse(configPath)
+    except:
+        elt = ET.Element('mappingList', attrib={'version': '1.0'})
+        tree = ET.ElementTree(elt)
+    return tree     
     
-    def toXml(self):
-        mappingElt = ET.Element('mapping', attrib={'name': self._name, 'title': self._title})
-        for item in self._mappingItems.values():
-            mappingElt.append(item.toXml())
-            
-        return mappingElt
-        
-        
-    def settings(self):
-        return QSettings(info.name, 'mappings')
-    
-    def create(self, title, from_=None):
-        if from_:
-            self.load(from_)
-        else:
-            self._mappingItems = {}
-            
-        self._name = getUniqueName()
-        self._title = getUniqueTile(title)
-    
-    def iterEntries(self):
-        for key in self._mappingItems:
-            yield key
-    
-    def __getitem__(self, key):
-        return self._mappingItems.get(key)
-    
-    def __iter__(self):
-        for item in self._mappingItems.values():
-            yield item
             
     
 
