@@ -11,8 +11,74 @@ from widgets import IconChooser
 import util
 import data as d
 import icons
+from Xtools import display, keyGroups
 
-
+class KeysymPicker(QWidget):
+    def __init__(self, parent=None):
+        QWidget.__init__(self, parent)
+        layout = QHBoxLayout(self)
+        self.button = QToolButton()
+        self.button.setText('...')
+        self.button.setPopupMode(QToolButton.InstantPopup)
+        self.lineEdit = QLineEdit()
+        self.label = QLabel()
+        self.label.setMinimumWidth(150)
+        self.lineEdit.setFixedWidth(100)
+        
+        
+        layout.addWidget(self.button)
+        layout.addWidget(self.lineEdit)
+        layout.addWidget(self.label, 1)
+        self._keysym = 0
+        
+        menu = QMenu(self)
+        for group, data in keyGroups.keyGroups:
+            m = menu.addMenu(group)
+            for keyname, keysym, char_ in data:
+                char = display.keysym2char(keysym)
+                name = display.keysym2name(keysym)
+                a = m.addAction(u"{}  {}".format(char, name))
+                a.setData(keysym)
+                
+        self.button.setMenu(menu)
+        menu.triggered.connect(self.slotMenu)
+    
+    def _setLineEditText(self, keysym):
+        self.lineEdit.setText('0x{0:04x}'.format(keysym) if keysym else '')
+        
+    def slotMenu(self, act):
+        self.label.setText(act.text())
+        self._setLineEditText(act.data())
+        self._keysym = act.data()
+        
+    def keysym(self):
+        text = self.lineEdit.text()
+        if not text:
+            return 0
+        try:
+            return int(text, 16)
+        except:
+            return None
+    
+    def setFocus_(self):
+        self.lineEdit.setFocus()
+        self.lineEdit.selectAll()
+        
+    def isValid(self):
+        keysym = self.keysym()
+        if keysym is not None:
+            name = display.keysym2name(keysym)
+            if name:
+                return True
+        return False
+    
+    def setKeysym(self, keysym):
+        self._keysym = keysym
+        char = display.keysym2char(keysym)
+        name = display.keysym2name(keysym)
+        self._setLineEditText(keysym)
+        self.label.setText(u"{}  {}".format(char, name))
+    
 
 class TextLineEdit(QLineEdit):
     focusIn = Signal()
@@ -25,11 +91,55 @@ class TextLineEdit(QLineEdit):
         QLineEdit.focusInEvent(self, event)
 
 
-class DialogEditor(QDialog):
+class RemappingDialog(QDialog):
+    def __init__(self, parent, keycode, keysyms=None):
+        super(RemappingDialog, self).__init__(parent)
+        self.setWindowTitle(self.tr("remapping editor"))
+        layout = QVBoxLayout(self)
+        if not keysyms:
+            keysyms = parent.display().keycode2keysyms(keycode)
+        self.keysymPickers = []
+        for i in range(4):
+            
+            keysymPicker = KeysymPicker(self)
+            self.keysymPickers.append(keysymPicker)
+            if len(keysyms) > i:
+                keysymPicker.setKeysym(keysyms[i])
+            layout.addWidget(keysymPicker)
+        
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Cancel | QDialogButtonBox.Ok,
+                                     rejected=self.reject, accepted=self.accept)
+        
+        layout.addStretch(1)
+        layout.addWidget(util.Separator())
+        layout.addWidget(buttonBox)
+    
+    def invalid(self):
+        for i, pick in enumerate(self.keysymPickers):
+            if not pick.isValid():
+                return i
+            
+        return -1
+    
+    def accept(self):
+        invalid = self.invalid()
+        if invalid != -1:
+            QMessageBox.warning(self, 'Incorrect value', 'Keysym values sont incorrect.')
+            self.keysymPickers[invalid].setFocus_()
+            return
+        
+        self.done(True)
+    
+    def keysyms(self):
+        return [pick.keysym() for pick in self.keysymPickers]
+            
+        
+        
+class ShortcutDialog(QDialog):
     textEvent = Signal(unicode)
     iconEvent = Signal(str)
     def __init__(self, parent, mItem=None):
-        super(DialogEditor, self).__init__(parent)
+        super(ShortcutDialog, self).__init__(parent)
         self.setWindowTitle(self.tr("key editor"))
         layout = QVBoxLayout()
         top = QHBoxLayout()
@@ -37,7 +147,6 @@ class DialogEditor(QDialog):
         top.addWidget(QLabel(self.tr("Type:")))
         top.addWidget(self.typeChooser)
         top.addStretch(1)
-        
         self.stackedWid = QStackedWidget()
         
         displayGroupBox = QGroupBox(self.tr("Display"))
@@ -76,7 +185,6 @@ class DialogEditor(QDialog):
         self.typeToPage = {d.TEXT: PageText(),
                            d.COMMAND: PageCommand(self),
                            d.SHORTCUT: PageShortcut(),
-                           d.REMAPPING: PageRemapping(self),
                             d.LOAD: PageLoad(self)
                         }
         
@@ -124,7 +232,7 @@ class DialogEditor(QDialog):
             QMessageBox.warning(self, self.tr("Warning"), page.errorMessage())
             return
         self.displayType = d.GR_ICON if self.radioIcon.isChecked() else d.GR_TEXT
-        self.displayValue = self.iconChooser.getIconName() if self.displayType == d.GR_ICON else self.textLineEdit.text()
+        self.displayValue = self.iconChooser.getIcon() if self.displayType == d.GR_ICON else self.textLineEdit.text()
         if not self.displayValue:
             if self.displayType == d.GR_ICON:
                 mess = self.tr("You must select an icon")
@@ -140,13 +248,6 @@ class DialogEditor(QDialog):
     
     def slotTypeChanged(self, index):
         typ = self.typeChooser.itemData(index)
-#         if typ in (d.PAUSE, d.STOP, d.RUN_EDITOR):
-#             self.iconChooser.setIcon(d.DATA_TYPE[typ])
-            
-#         if typ == d.PAUSE:
-#             self.iconChooser.setIcon('media-playback-pause')
-#         elif typ == d.STOP:
-#             self.iconChooser.setIcon('media-playback-stop')
         page = self.typeToPage.get(typ, self.pageEmpty)
         if isinstance(page, PageEmpty):
             self.iconChooser.setIcon(d.DATA_TYPE[typ].icon)
