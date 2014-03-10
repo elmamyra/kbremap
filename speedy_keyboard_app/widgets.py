@@ -1,7 +1,7 @@
 
 from PySide.QtGui import *  # @UnusedWildImport
 from PySide.QtCore import QSettings, QSize, Signal, Qt
-import data
+# import data
 import icons
 import os
 
@@ -24,12 +24,13 @@ class IconChooser(QToolButton):
             self.setIcon(iconFile)
             self.iconChanged.emit()
             
-    def getIconName(self):
+    def getIcon(self):
         return self.defaultAction().data()
     
     def setIcon(self, icon):
         self.defaultAction().setIcon(icons.get(icon))
         self.defaultAction().setData(icon)
+        self.iconChanged.emit()
 
 
 class ShortcutWidget(QLineEdit):
