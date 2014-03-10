@@ -281,17 +281,15 @@ class Display:
     def restoreClipboard(self, backup):
         self._clipboard.request_text(lambda a, b, c: None)
         if backup:
-            self._clipboard.set_text(backup[0] or '')
+            self._clipboard.set_text(backup or '')
             self._clipPrimay.clear()
             self._clipboard.store()
      
     def sendText(self, text):
         backup = self._clipboard.wait_for_text()
-        backupPrim = self._clipPrimay.wait_for_text()
-        print backupPrim
         self._clipboard.set_text(text)
         self._clipPrimay.set_text(text)
-        self._clipboard.request_text(self.slotClipboard, (backup, backupPrim))
+        self._clipboard.request_text(self.slotClipboard, backup)
         self._clipboard.store()
         self._clipPrimay.store()
                 
