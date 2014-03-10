@@ -2,8 +2,9 @@ from PySide.QtGui import QColor
 from PySide.QtCore import  QObject
 from collections import namedtuple
 
-TEXT, COMMAND, SHORTCUT, REMAPPING, LOAD, PAUSE, STOP, RUN_EDITOR = range(8)
+TEXT, COMMAND, SHORTCUT, LOAD, PAUSE, STOP, RUN_EDITOR = range(7)
 
+SHORTCUT_MODE, REMAPPING_MODE = range(2) 
 
 GR_TEXT, GR_ICON = range(2)
 
@@ -16,7 +17,6 @@ DATA_TYPE = {
             TEXT: t(tr("Text"), 'text'),
             COMMAND: t(tr("Command"), 'utilities-terminal'),
             SHORTCUT: t(tr("Shortcut"), 'shortcuts'),
-            REMAPPING: t(tr("Remapping"), 'keys'),
             LOAD: t(tr("Load"), 'document-open'),
             PAUSE: t(tr("Pause/Resume"), 'media-playback-pause'),
             STOP: t(tr("Stop"), 'media-playback-stop'),
