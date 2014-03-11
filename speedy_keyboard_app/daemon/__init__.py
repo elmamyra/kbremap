@@ -26,12 +26,12 @@ PORT = 22347
 
 
 class Daemon(object):
-    def __init__(self):
+    def __init__(self, debug=False):
         self.input = []
         self.running = False
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.log = logger.Logger('server')
+        self.log = logger.Logger('server', debug=debug)
         self.handler = Handler(self)
         self._state = 'running'
         
@@ -85,9 +85,11 @@ class Daemon(object):
                         self.quit_()
                     elif data == 'pause':
                         self.pause()
-                        
                     elif data == 'send-state':
                         self.sendState()
+                    elif data.startswith('change-notify'):
+                        val = util.str2bool(data.split()[1])
+                        self.handler.getMapping().setNotify(val)
 
         for client in self.input:
             client.close()
@@ -96,9 +98,10 @@ class Daemon(object):
         self.log.info('server closed')
         
     def notify(self, msg):
-        n = pynotify.Notification(info.name,
-          msg)
-        n.show()
+        if self.handler.getMapping().notify():
+            n = pynotify.Notification(info.name,
+              msg)
+            n.show()
     
     def update(self):
         self.handler.update()
@@ -148,7 +151,7 @@ def _send(msg):
     try:
         msg = s.recv(128)
     except socket.error, msg:
-        print 'receive error: {}'.format(msg)
+        print ' the server is not responding: {}'.format(msg)
         return
     if msg.startswith('state'):
         state = msg.split()[1]
@@ -159,8 +162,8 @@ def _send(msg):
     elif msg == 'quit':
         print 'the server is off'
 
-def start():
-    daemon = Daemon()
+def start(debug=False):
+    daemon = Daemon(debug)
     msg = daemon.connect()
     if msg:
         print 'connection failed: {}'.format(msg)
@@ -169,11 +172,6 @@ def start():
     
 def pause():
     _send('pause')
-    
-    
-        
-# def resume():
-#     _send('resume')
     
     
 def close():
