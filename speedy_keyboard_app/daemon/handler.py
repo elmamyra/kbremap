@@ -13,7 +13,7 @@ PORT = 22347
 class Handler(object):
     def __init__(self, daemon):
         self.daemon = daemon
-        self.log = logger.Logger('server')
+        self.log = daemon.log
         self.display = Display()
         self.mapping = mapping.Mapping()
         self.running = True
@@ -77,6 +77,9 @@ class Handler(object):
     def resume(self):
         self.grabKeys((d.PAUSE,))
         self.remapKeys()
+        
+    def getMapping(self):
+        return self.mapping
     
     def eventThread(self):
         while self.running:
@@ -85,15 +88,13 @@ class Handler(object):
                 modMask = self.display.removeNumLockMask(event.keycode, event.modifiers)
                 item = self.mapping.shortcut[event.keycode, modMask]
                 if item:
-                    self.log.handler_('item send: %s', item.type)
+                    self.log.handler_('item send: type=%s, data=%s', item.type, item.data)
                     if item.type == d.TEXT:
                         self.display.sendText(item.data)
                     elif item.type == d.SHORTCUT:
                         self.display.sendEntry(item.data[0], item.data[1])
                     elif item.type == d.COMMAND:
                         Popen(item.data.split(), close_fds=True)
-                    elif item.type == d.REMAPPING:
-                        self.display.remapTest(item.data)
                     elif item.type == d.PAUSE:
                         self.send('pause')
                     elif item.type == d.STOP:
