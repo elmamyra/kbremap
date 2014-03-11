@@ -345,15 +345,9 @@ class KeyBase(QGraphicsRectItem):
     
     def hoverEnterEvent(self, event):
         self.updateColor(QColor(self._color.rgb() + 0x0E0E0E), 0x222222)
-#             self.setBrush(QColor(clr))
-#             self.effect.setColor(QColor(self._color.rgb() - 0x5A5A5A))
-#             self.effect.setEnabled(True)
-            
         
     def hoverLeaveEvent(self, event):
         self.restoreColor()
-#             self.setBrush(self._color)
-#             self.effect.setColor(QColor(self._color.rgb() - 0x7F7F7F))
     
     def view(self):
         return self.scene().views()[0]
@@ -422,7 +416,6 @@ class KeyboardView(QGraphicsView):
         self._keySize = 40.0
         self.model = ()
         self._mode = d.SHORTCUT_MODE
-#         self._subMapping = self.mapping().shortcut
         self._currentModifier = self._display.numMask()
         self.currentPressed = None
         self.currentHover = None
@@ -484,12 +477,6 @@ class KeyboardView(QGraphicsView):
             meth(key)
             key.setEnabled_(self.isEnabled())
             
-            
-#     def setEnabled_(self, val):
-#         for key in self._keys:
-#             key.setEnabled_(val)
-#         print 'view enable'
-#         self.setEnabled(val)
        
     def loadRemapKey(self, key):
         key.clear()
@@ -511,10 +498,13 @@ class KeyboardView(QGraphicsView):
             charsNames = self._display.keycode2charsAndNames(key.keycode())
             key.setColor('default')
             key.setMapChars(*charsNames)
+            
+        if key.isModifier():
+            key.setEnabled(False)
+            key.setColor('no-char')
        
     def loadShortKey(self, key):
         key.clear()
-#         key.setEnabled(True)
         char, name = self._display.keycode2char(key.keycode(), self._currentModifier)
         keycode = key.keycode()
         mods = self._display.removeNumLockMask(keycode, self._currentModifier)
@@ -585,22 +575,9 @@ class KeyboardView(QGraphicsView):
                 key.setColor('special-key')
             elif char:
                 key.setColor('default')
-#                 key.setEnabled(True)
             else:
                 key.noSymbol()
             
-                
-#             else:
-#                 key.setColor('default')
-                
-                
-#                 len(name) > 1:
-#                 key.setColor('dead-key')
-                
-#             elif char.lower().startswith('dead_'):
-#                 key.setColor('dead-key')
-            
-#     
     
     def mapping(self):
         return self.mainWindow.mapping()
@@ -620,18 +597,16 @@ class KeyboardView(QGraphicsView):
         return self._display
     
     def slotEditKey(self, key):
+        if key.isModifier():
+            return
         if self._mode == d.SHORTCUT_MODE:
-            if key.isModifier():
-                return
-            
             dlg = dialogEditor.ShortcutDialog(self, key.shortcutItem())
             if dlg.exec_():
                 item = ShortcutItem(key.keycode(), self._display.removeNumLockMask(key.keycode(), self._currentModifier), *dlg.getData())
                 self._subMapping.addItem(item)
                 self.loadShortKey(key)
-#                 key.setShortcutItem(item)
                 self._subMapping.save()
-#                 self.keyModified.emit()
+                self.keyModified.emit()
         else:
             dlg = dialogEditor.RemappingDialog(self, key.keycode(), key.remapItem())
             if dlg.exec_():
@@ -640,7 +615,7 @@ class KeyboardView(QGraphicsView):
                 key.setRemapItem(item)
                 self.loadRemapKey(key)
                 self._subMapping.save()
-#                 key.set
+                self.keyModified.emit()
                 
                 
     
@@ -650,8 +625,6 @@ class KeyboardView(QGraphicsView):
                     (not key.isModifier() or self._mode == d.REMAPPING_MODE):
                 
             sourceMItem = self._subMapping.popItem(self.currentPressed)
-#             sourceModifiers = sourceMItem.modifiers
-#             sourceKeycode = sourceMItem.keycode
             cibleKey = key
             if self._mode == d.SHORTCUT_MODE:
                 modMask = self._display.removeNumLockMask(cibleKey.keycode(), self._currentModifier)
@@ -722,6 +695,7 @@ class KeyboardView(QGraphicsView):
                 key.clear()
                 self._subMapping.save()
                 self.loadLayout()
+                self.keyModified.emit()
                 
         
     def keyAt(self, pos):
@@ -742,7 +716,6 @@ class KeyboardView(QGraphicsView):
             self._subMapping = self.mapping().shortcut
         else:
             self._subMapping = self.mapping().remap
-#             self.loadLayout()
     
     def keys(self):
         return self._keys
