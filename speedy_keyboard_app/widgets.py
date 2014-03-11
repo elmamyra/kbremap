@@ -9,20 +9,34 @@ class IconChooser(QToolButton):
     iconChanged = Signal()
     def __init__(self, parent=None):
         super(IconChooser, self).__init__(parent)
+        self.setAcceptDrops(True)
         self.iconPath = ''
         self.setIconSize(QSize(32, 32))
         act = QAction(self,  triggered=self.slotTriggered)
         self.setDefaultAction(act)
         
-        
+    
+    def dragEnterEvent(self, e):
+        if e.mimeData().hasFormat('text/plain'):
+            e.accept()
+        else:
+            e.ignore()
+            
+    def dropEvent(self, e):
+        mime = e.mimeData()
+        text = str(mime.data('text/uri-list')).strip()
+        path = text[7:]
+        if os.path.exists(path):
+            self.setIcon(path)
+    
     def slotTriggered(self):
-        iconPath = QSettings().value('icon-path', os.path.join('/usr', 'share', 'icons'))
-        exts = ['*.'+str(ext) for ext in QImageWriter.supportedImageFormats()]
+        iconPath = QSettings().value('iconPath', os.path.join('/usr', 'share', 'icons'))
+        exts = ['*.'+str(ext) for ext in QImageReader.supportedImageFormats()]
         extStr = self.tr("Icon Files") + " ({})".format(' '.join(exts))
         iconFile = QFileDialog.getOpenFileName(self, self.tr("Icon"), iconPath, extStr)[0]
         if iconFile:
+            QSettings().setValue('iconPath', os.path.dirname(iconFile))
             self.setIcon(iconFile)
-            self.iconChanged.emit()
             
     def getIcon(self):
         return self.defaultAction().data()
