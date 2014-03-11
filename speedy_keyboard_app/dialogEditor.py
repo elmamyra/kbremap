@@ -13,20 +13,103 @@ import data as d
 import icons
 from Xtools import display, keyGroups
 
+
+class SearchDialog(QDialog):
+    def __init__(self, parent=None):
+        QDialog.__init__(self, parent)
+        self.setWindowTitle(self.tr('Search'))
+        layout = QVBoxLayout(self)
+        radioLayout = QHBoxLayout()
+        self._keysym = 0
+        
+        self.radioGroup = QButtonGroup(self)
+        self.radioByName = QRadioButton(self.tr('By key name'), checked=True)
+        self.radioByChar = QRadioButton(self.tr('By character'))
+        self.radioGroup.addButton(self.radioByName, 0)
+        self.radioGroup.addButton(self.radioByChar, 1)
+        radioLayout.addWidget(self.radioByName)
+        radioLayout.addWidget(self.radioByChar)
+        self.lineEdit = QLineEdit()
+        self.listWidget = QListWidget()
+        
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Close,
+                                     rejected=self.reject)
+        
+        layout.addLayout(radioLayout)
+        layout.addWidget(self.lineEdit)
+        layout.addWidget(self.listWidget)
+        layout.addWidget(util.Separator())
+        layout.addWidget(buttonBox)
+        
+        self.keyData = []
+        for group in keyGroups.keyGroups:
+            for keysym in group[1]:
+                char = display.keysym2char(keysym)
+                name = display.keysym2name(keysym)
+                self.keyData.append((name, char, keysym))
+                
+        self.keyData = tuple(set(self.keyData))
+                
+        self.lineEdit.setFocus()
+        self.lineEdit.textChanged.connect(self.slotTextChanged)
+        self.radioGroup.buttonReleased[int].connect(self.slotRadio)
+        self.listWidget.itemActivated.connect(self.slotChoose)
+        
+    
+    def fillList(self, text):
+        self.listWidget.clear()
+        if not text:
+            return
+        li = []
+        if self.radioGroup.checkedId() == 0:
+            for data in self.keyData:
+                if text.lower() in data[0].lower():
+                    li.append(data)
+        else:
+            for data in self.keyData:
+                if text == data[1]:
+                    li.append(data)
+                    
+        for data in sorted(li, key=lambda x: x[0].lower()):
+            label = data[0]
+            if data[1]:
+                label = u'{} ({})'.format(label, data[1])
+            item = QListWidgetItem(label)
+            item.setData(Qt.UserRole, data[2])
+            self.listWidget.addItem(item)
+    
+    def slotTextChanged(self, text):
+        self.fillList(text)
+         
+    def slotRadio(self, index):
+        self.fillList(self.lineEdit.text())
+        self.lineEdit.setFocus()
+    
+    def slotChoose(self, item):
+        self._keysym = item.data(Qt.UserRole)
+        self.accept()
+        
+    def keysym(self):
+        return self._keysym
+        
 class KeysymPicker(QWidget):
     def __init__(self, parent=None):
         QWidget.__init__(self, parent)
         layout = QHBoxLayout(self)
-        self.button = QToolButton()
-        self.button.setText('...')
-        self.button.setPopupMode(QToolButton.InstantPopup)
+        layout.setSpacing(2)
+        menuButton = QToolButton()
+        menuButton.setText('...')
+        menuButton.setPopupMode(QToolButton.InstantPopup)
+        searchButton = QToolButton()
+        searchButton.setIcon(icons.get('search'))
         self.lineEdit = QLineEdit()
         self.label = QLabel()
         self.label.setMinimumWidth(150)
         self.lineEdit.setFixedWidth(100)
         self.lineEdit.setValidator(HexValidator(self))
         
-        layout.addWidget(self.button)
+        layout.addWidget(menuButton)
+        layout.addWidget(searchButton)
         layout.addWidget(self.lineEdit)
         layout.addWidget(self.label, 1)
         self._keysym = 0
@@ -40,17 +123,16 @@ class KeysymPicker(QWidget):
                 a = m.addAction(u"{}  {}".format(char, name))
                 a.setData(keysym)
                 
-        self.button.setMenu(menu)
+        menuButton.setMenu(menu)
         menu.triggered.connect(self.slotMenu)
+        searchButton.pressed.connect(self.slotSearch)
         self.lineEdit.textChanged.connect(self.slotKeysymChanged)
     
     def _setLineEditText(self, keysym):
         self.lineEdit.setText('0x{0:04X}'.format(keysym) if keysym else '')
         
     def slotMenu(self, act):
-        self.label.setText(act.text())
-        self._setLineEditText(act.data())
-        self._keysym = act.data()
+        self.setKeysym(act.data())
         
     def slotKeysymChanged(self, text):
         if self.isValid():
@@ -58,15 +140,11 @@ class KeysymPicker(QWidget):
         else:
             self.label.setText(self.tr("Invalid"))
         
-#         if text[:2] != '0x':
-#             text = '0x' + text[2:]
-#             self.lineEdit.setText(text)
-#         else:
-#             if self.isValid():
-#                 self.updateLabel()
-#             else:
-#                 self.setInvalid()
-        
+    def slotSearch(self):    
+        dlg = SearchDialog(self)
+        if dlg.exec_():
+            self.setKeysym(dlg.keysym())
+            
     def keysym(self):
         text = self.lineEdit.text()
         if not text:
@@ -76,15 +154,15 @@ class KeysymPicker(QWidget):
         except:
             return None
     
-#     def setInvalid(self):
-#         self.label.setText(self.tr("Invalid"))
-    
     def updateLabel(self):
         keysym = self.keysym()
         name = display.keysym2name(keysym)
         if name:
             char = display.keysym2char(keysym)
-            self.label.setText(u"{}  {}".format(char, name))
+            label = name
+            if char:
+                label = u'{} ({})'.format(label, char)
+            self.label.setText(label)
         else:
             self.label.setText('')
             
@@ -104,10 +182,11 @@ class KeysymPicker(QWidget):
     
     def setKeysym(self, keysym):
         self._keysym = keysym
-        char = display.keysym2char(keysym)
-        name = display.keysym2name(keysym)
+#         char = display.keysym2char(keysym)
+#         name = display.keysym2name(keysym)
         self._setLineEditText(keysym)
-        self.label.setText(u"{}  {}".format(char, name))
+        self.updateLabel()
+#         self.label.setText(u"{}  {}".format(char, name))
     
 
 class HexValidator(QValidator):
