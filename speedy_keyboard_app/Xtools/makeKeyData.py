@@ -37,7 +37,8 @@ with open(pathDef) as f:
                         char = 'u"\\u{0:04x}"'.format(uni)
                     else:
                         char = '""'
-                    out.write('{}("{}", {}, {}),\n'.format(tab, name, keysymHex, char))
+                    out.write('{}{},\n'.format(tab, keysymHex))
+#                     out.write('{}("{}", {}, {}),\n'.format(tab, name, keysymHex, char))
                     
         out.write(")")
         
