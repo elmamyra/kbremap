@@ -24,7 +24,7 @@ class KeysymPicker(QWidget):
         self.label = QLabel()
         self.label.setMinimumWidth(150)
         self.lineEdit.setFixedWidth(100)
-        
+        self.lineEdit.setValidator(HexValidator(self))
         
         layout.addWidget(self.button)
         layout.addWidget(self.lineEdit)
@@ -34,7 +34,7 @@ class KeysymPicker(QWidget):
         menu = QMenu(self)
         for group, data in keyGroups.keyGroups:
             m = menu.addMenu(group)
-            for keyname, keysym, char_ in data:
+            for keysym in data:
                 char = display.keysym2char(keysym)
                 name = display.keysym2name(keysym)
                 a = m.addAction(u"{}  {}".format(char, name))
@@ -42,30 +42,60 @@ class KeysymPicker(QWidget):
                 
         self.button.setMenu(menu)
         menu.triggered.connect(self.slotMenu)
+        self.lineEdit.textChanged.connect(self.slotKeysymChanged)
     
     def _setLineEditText(self, keysym):
-        self.lineEdit.setText('0x{0:04x}'.format(keysym) if keysym else '')
+        self.lineEdit.setText('0x{0:04X}'.format(keysym) if keysym else '')
         
     def slotMenu(self, act):
         self.label.setText(act.text())
         self._setLineEditText(act.data())
         self._keysym = act.data()
         
+    def slotKeysymChanged(self, text):
+        if self.isValid():
+            self.updateLabel()
+        else:
+            self.label.setText(self.tr("Invalid"))
+        
+#         if text[:2] != '0x':
+#             text = '0x' + text[2:]
+#             self.lineEdit.setText(text)
+#         else:
+#             if self.isValid():
+#                 self.updateLabel()
+#             else:
+#                 self.setInvalid()
+        
     def keysym(self):
         text = self.lineEdit.text()
         if not text:
-            return 0
+            return 0x0
         try:
             return int(text, 16)
         except:
             return None
     
+#     def setInvalid(self):
+#         self.label.setText(self.tr("Invalid"))
+    
+    def updateLabel(self):
+        keysym = self.keysym()
+        name = display.keysym2name(keysym)
+        if name:
+            char = display.keysym2char(keysym)
+            self.label.setText(u"{}  {}".format(char, name))
+        else:
+            self.label.setText('')
+            
     def setFocus_(self):
         self.lineEdit.setFocus()
         self.lineEdit.selectAll()
         
     def isValid(self):
         keysym = self.keysym()
+        if keysym == 0:
+            return True
         if keysym is not None:
             name = display.keysym2name(keysym)
             if name:
@@ -79,6 +109,18 @@ class KeysymPicker(QWidget):
         self._setLineEditText(keysym)
         self.label.setText(u"{}  {}".format(char, name))
     
+
+class HexValidator(QValidator):
+    def __init__(self, parent):
+        QValidator.__init__(self, parent)
+        
+    def validate(self, text, pos):
+        if not text:
+            return QValidator.Acceptable, text
+            
+        text = '0x' + filter(lambda c: c.upper() in "ABCDEF0123456789", text[2:]).upper()
+        return QValidator.Acceptable, text
+
 
 class TextLineEdit(QLineEdit):
     focusIn = Signal()
@@ -100,7 +142,6 @@ class RemappingDialog(QDialog):
             keysyms = parent.display().keycode2keysyms(keycode)
         self.keysymPickers = []
         for i in range(4):
-            
             keysymPicker = KeysymPicker(self)
             self.keysymPickers.append(keysymPicker)
             if len(keysyms) > i:
@@ -224,7 +265,7 @@ class ShortcutDialog(QDialog):
         page = self.stackedWid.currentWidget()
         index = self.typeChooser.currentIndex()
         typ = self.typeChooser.itemData(index)
-        if  typ == -1:
+        if  index == -1:
             QMessageBox.warning(self, self.tr("Warning"), self.tr("You must select a type of key."))
             return
         
