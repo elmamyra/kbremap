@@ -1,5 +1,24 @@
+# This file is part of the speedy-entry project.
+#
+# Copyright (c) 2014 - 2014 by Nicolas Malarmey
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+# See http://www.gnu.org/licenses/ for more information.
+
 # -*- coding: utf-8 -*-
-from Xlib.display import Display as XDisplay
+from Xlib.display import Display
 from Xlib import X, error
 import Xlib
 from collections import namedtuple
@@ -37,11 +56,11 @@ DEAD_KEYS = (
 
 LEVEL_MOD = (0, X.ShiftMask, X.Mod5Mask, X.ShiftMask | X.Mod5Mask)
 
-class Display:
+class KeyTools:
     KEY_PRESS = X.KeyPress
     KEY_RELEASE = X.KeyRelease
     def __init__(self):
-        self._xdisplay = XDisplay()
+        self._xdisplay = Display()
         self._xroot = self._xdisplay.screen().root
         self._clipboard = gtk.clipboard_get()
         self._clipPrimay = gtk.clipboard_get("PRIMARY")
@@ -345,8 +364,6 @@ def keysym2name(keysym):
 def keysym2char(keysym):
     char = gdk.keyval_to_unicode(keysym)  # @UndefinedVariable
     return unichr(char) if char else ""
-
-# def keysym2charOrName(keysym):
 
 def name2Char(name):
     char = name2unicode(name)

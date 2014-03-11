@@ -11,7 +11,7 @@ from widgets import IconChooser
 import util
 import data as d
 import icons
-from Xtools import display, keyGroups
+import keyTools
 
 
 class SearchDialog(QDialog):
@@ -42,10 +42,10 @@ class SearchDialog(QDialog):
         layout.addWidget(buttonBox)
         
         self.keyData = []
-        for group in keyGroups.keyGroups:
+        for group in keyTools.keyGroups.keyGroups:
             for keysym in group[1]:
-                char = display.keysym2char(keysym)
-                name = display.keysym2name(keysym)
+                char = keyTools.keysym2char(keysym)
+                name = keyTools.keysym2name(keysym)
                 self.keyData.append((name, char, keysym))
                 
         self.keyData = tuple(set(self.keyData))
@@ -115,11 +115,11 @@ class KeysymPicker(QWidget):
         self._keysym = 0
         
         menu = QMenu(self)
-        for group, data in keyGroups.keyGroups:
+        for group, data in keyTools.keyGroups.keyGroups:
             m = menu.addMenu(group)
             for keysym in data:
-                char = display.keysym2char(keysym)
-                name = display.keysym2name(keysym)
+                char = keyTools.keysym2char(keysym)
+                name = keyTools.keysym2name(keysym)
                 a = m.addAction(u"{}  {}".format(char, name))
                 a.setData(keysym)
                 
@@ -156,9 +156,9 @@ class KeysymPicker(QWidget):
     
     def updateLabel(self):
         keysym = self.keysym()
-        name = display.keysym2name(keysym)
+        name = keyTools.keysym2name(keysym)
         if name:
-            char = display.keysym2char(keysym)
+            char = keyTools.keysym2char(keysym)
             label = name
             if char:
                 label = u'{} ({})'.format(label, char)
@@ -175,18 +175,15 @@ class KeysymPicker(QWidget):
         if keysym == 0:
             return True
         if keysym is not None:
-            name = display.keysym2name(keysym)
+            name = keyTools.keysym2name(keysym)
             if name:
                 return True
         return False
     
     def setKeysym(self, keysym):
         self._keysym = keysym
-#         char = display.keysym2char(keysym)
-#         name = display.keysym2name(keysym)
         self._setLineEditText(keysym)
         self.updateLabel()
-#         self.label.setText(u"{}  {}".format(char, name))
     
 
 class HexValidator(QValidator):
@@ -218,7 +215,7 @@ class RemappingDialog(QDialog):
         self.setWindowTitle(self.tr("remapping editor"))
         layout = QVBoxLayout(self)
         if not keysyms:
-            keysyms = parent.display().keycode2keysyms(keycode)
+            keysyms = parent.keyTools().keycode2keysyms(keycode)
         self.keysymPickers = []
         for i in range(4):
             keysymPicker = KeysymPicker(self)

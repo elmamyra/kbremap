@@ -4,7 +4,7 @@
 #d = namedtuple('d', 'name char info')
 
 pathDef = "/usr/include/X11/keysymdef.h"
-import display
+import keyTools
 
 
 
@@ -32,7 +32,7 @@ with open(pathDef) as f:
                     keysym = split[1]
                     keysymHex = split[2]
                     name = keysym[3:]
-                    uni = display.name2unicode(name)
+                    uni = keyTools.name2unicode(name)
                     if uni:
                         char = 'u"\\u{0:04x}"'.format(uni)
                     else:

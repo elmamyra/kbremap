@@ -2,10 +2,8 @@
 from PySide.QtGui import *  # @UnusedWildImport
 from PySide.QtCore import Qt
 from widgets import ShortcutWidget
-# from speedy_keyboard_app.Xtools import keyGroups
 import os
 import mapping
-# from Xtools import display
 
 class PageBase(QWidget):
     def __init__(self, parent=None):

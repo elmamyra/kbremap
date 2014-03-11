@@ -1,5 +1,5 @@
 import time
-from ..Xtools.display import Display
+from speedy_keyboard_app.keyTools import KeyTools
 from .. import mapping
 import threading
 from subprocess import Popen, PIPE
@@ -14,10 +14,10 @@ class Handler(object):
     def __init__(self, daemon):
         self.daemon = daemon
         self.log = daemon.log
-        self.display = Display()
+        self.keyTools = KeyTools()
         self.mapping = mapping.Mapping()
         self.running = True
-        self.display.resetMapping()
+        self.keyTools.resetMapping()
         
     def update(self):
         self.ungrabKeys()
@@ -50,25 +50,25 @@ class Handler(object):
         self.log.handler_('grab keys')
         for item in self.mapping.shortcut:
             if item.type not in exceptType:
-                self.display.grabKey(item.keycode, item.modifiers)
+                self.keyTools.grabKey(item.keycode, item.modifiers)
                 
     def ungrabKeys(self, exceptType=()):
         self.log.handler_('ungrab keys')
         for item in self.mapping.shortcut:
             if item.type not in exceptType:
-                self.display.ungrabKey(item.keycode, item.modifiers)
+                self.keyTools.ungrabKey(item.keycode, item.modifiers)
             
     def remapKeys(self):
         for item in self.mapping.remap:
-            self.display.remapKey(item.keycode, item.keysyms)
+            self.keyTools.remapKey(item.keycode, item.keysyms)
             
     def restoreMap(self):
-        self.display.resetMapping()
+        self.keyTools.resetMapping()
     
             
     def stop(self):
         self.running = False
-        self.display.resetMapping()
+        self.keyTools.resetMapping()
         
     def pause(self):
         self.ungrabKeys(exceptType=(d.PAUSE,))
@@ -83,16 +83,16 @@ class Handler(object):
     
     def eventThread(self):
         while self.running:
-            event = self.display.nextKeyEvent()
+            event = self.keyTools.nextKeyEvent()
             if event:
-                modMask = self.display.removeNumLockMask(event.keycode, event.modifiers)
+                modMask = self.keyTools.removeNumLockMask(event.keycode, event.modifiers)
                 item = self.mapping.shortcut[event.keycode, modMask]
                 if item:
                     self.log.handler_('item send: type=%s, data=%s', item.type, item.data)
                     if item.type == d.TEXT:
-                        self.display.sendText(item.data)
+                        self.keyTools.sendText(item.data)
                     elif item.type == d.SHORTCUT:
-                        self.display.sendEntry(item.data[0], item.data[1])
+                        self.keyTools.sendEntry(item.data[0], item.data[1])
                     elif item.type == d.COMMAND:
                         Popen(item.data.split(), close_fds=True)
                     elif item.type == d.PAUSE:

@@ -22,19 +22,15 @@ Base class of graphic keyboard.
 """
 
 
-from PySide.QtCore import *
-from PySide.QtGui import *
-#from . import util
-#from . import data
-from Xtools import display
+from PySide.QtCore import *  # @UnusedWildImport
+from PySide.QtGui import *  # @UnusedWildImport
+import keyTools
 from mapping import ShortcutItem, RemapItem
 import keyboardmodel
 import dialogEditor
 import util
 import data as d
 import icons
-import os
-import time
 
 
 class KeyBase(QGraphicsRectItem):
@@ -125,22 +121,13 @@ class KeyBase(QGraphicsRectItem):
         brush = QBrush(gradient)
         self.setBrush(brush)
         
-    def setMItemTooltip(self):
-        return
-        if self._mItem:
-            t = self._mItem.type
-            data = self._mItem.data
+    def setShortcutTooltip(self):
+        if self._shortcutItem:
+            t = self._shortcutItem.type
+            data = self._shortcutItem.data
             name = d.DATA_TYPE[t].title
-            val = ''
-            if t == d.TEXT:
-                pass
-#                 val = u'{}<br/>use {}'.format(data[0], self.tr('clipboard') if data[1] else self.tr('system'))
-            elif t == d.SHORTCUT:
+            if t == d.SHORTCUT:
                 val = data[2]
-            elif t == d.REMAPPING:
-                char = display.keysym2char(data)
-                name = display.keysym2name(data)
-                val = u"<b>{}</b> {}".format(char, name)
             else:
                 val = data
             
@@ -304,7 +291,7 @@ class KeyBase(QGraphicsRectItem):
         self._shortcutItem = item
         self.setColor('content')
         
-        self.setMItemTooltip()
+        self.setShortcutTooltip()
         
     def setRemapItem(self, item):
         self._shortcutItem = None
@@ -409,14 +396,14 @@ class KeyboardView(QGraphicsView):
         self.setRenderHint(QPainter.TextAntialiasing)
         self.setMinimumSize(400, 180)
         self.setScene(QGraphicsScene(self))
-        self._display = display.Display()
+        self._keyTools = keyTools.KeyTools()
         self._keys = []
         self._modifierKeys = []
         self._space = 5.0
         self._keySize = 40.0
         self.model = ()
         self._mode = d.SHORTCUT_MODE
-        self._currentModifier = self._display.numMask()
+        self._currentModifier = self._keyTools.numMask()
         self.currentPressed = None
         self.currentHover = None
         
@@ -453,11 +440,11 @@ class KeyboardView(QGraphicsView):
                     key = Key(self.scene(), keycode)
                 key.setSize(w, h)
                     
-                if self._display.isModifier(keycode):
-                    key.setModifier(self._display.getModMask(keycode))
+                if self._keyTools.isModifier(keycode):
+                    key.setModifier(self._keyTools.getModMask(keycode))
                     self._modifierKeys.append(key)
                     
-                if self._display.isKeypadKey(keycode):
+                if self._keyTools.isKeypadKey(keycode):
                     key.setIsKeypadKey(True)
                 
                 if info == km.EMPTY:
@@ -484,8 +471,8 @@ class KeyboardView(QGraphicsView):
         if item:
             chars, names = [], []
             for keysym in item.keysyms:
-                chars.append(display.keysym2char(keysym))
-                names.append(display.keysym2name(keysym))
+                chars.append(keyTools.keysym2char(keysym))
+                names.append(keyTools.keysym2name(keysym))
                 
             while not names[-1]:
                 chars.pop(-1)
@@ -495,7 +482,7 @@ class KeyboardView(QGraphicsView):
                 
                 
         else:
-            charsNames = self._display.keycode2charsAndNames(key.keycode())
+            charsNames = self._keyTools.keycode2charsAndNames(key.keycode())
             key.setColor('default')
             key.setMapChars(*charsNames)
             
@@ -505,9 +492,9 @@ class KeyboardView(QGraphicsView):
        
     def loadShortKey(self, key):
         key.clear()
-        char, name = self._display.keycode2char(key.keycode(), self._currentModifier)
+        char, name = self._keyTools.keycode2char(key.keycode(), self._currentModifier)
         keycode = key.keycode()
-        mods = self._display.removeNumLockMask(keycode, self._currentModifier)
+        mods = self._keyTools.removeNumLockMask(keycode, self._currentModifier)
         item = self._subMapping[keycode, mods]
         if item:
             key.setShortcutItem(item)
@@ -560,7 +547,7 @@ class KeyboardView(QGraphicsView):
                 elif name == 'dead_belowdot':
                     key.setText(u"\u0323")
                 elif name.lower().startswith('dead_'):
-                    key.setText(display.name2Char(name[5:].lower()))
+                    key.setText(keyTools.name2Char(name[5:].lower()))
                 elif name in ('Page_Up', 'Page_Down', 'Num_Lock', 'Caps_Lock'):
                     key.setText(name.replace('_', '\n'), elide=False)
                 elif name == 'VoidSymbol':
@@ -593,8 +580,8 @@ class KeyboardView(QGraphicsView):
         else:
             self._currentModifier |= mod
             
-    def display(self):
-        return self._display
+    def keyTools(self):
+        return self._keyTools
     
     def slotEditKey(self, key):
         if key.isModifier():
@@ -602,7 +589,7 @@ class KeyboardView(QGraphicsView):
         if self._mode == d.SHORTCUT_MODE:
             dlg = dialogEditor.ShortcutDialog(self, key.shortcutItem())
             if dlg.exec_():
-                item = ShortcutItem(key.keycode(), self._display.removeNumLockMask(key.keycode(), self._currentModifier), *dlg.getData())
+                item = ShortcutItem(key.keycode(), self._keyTools.removeNumLockMask(key.keycode(), self._currentModifier), *dlg.getData())
                 self._subMapping.addItem(item)
                 self.loadShortKey(key)
                 self._subMapping.save()
@@ -627,7 +614,7 @@ class KeyboardView(QGraphicsView):
             sourceMItem = self._subMapping.popItem(self.currentPressed)
             cibleKey = key
             if self._mode == d.SHORTCUT_MODE:
-                modMask = self._display.removeNumLockMask(cibleKey.keycode(), self._currentModifier)
+                modMask = self._keyTools.removeNumLockMask(cibleKey.keycode(), self._currentModifier)
                 mapKey = (cibleKey.keycode(), modMask)
             else:
                 mapKey = cibleKey.keycode()
@@ -750,8 +737,8 @@ class KeyboardView(QGraphicsView):
     
     def keyPressEvent(self, event):
         keycode = event.nativeScanCode()
-        if keycode in self._display.modifiersKeycodeList():
-            mod = self._display.getModMask(keycode)
+        if keycode in self._keyTools.modifiersKeycodeList():
+            mod = self._keyTools.getModMask(keycode)
             self.modifierPressed.emit(mod)
                 
                 
