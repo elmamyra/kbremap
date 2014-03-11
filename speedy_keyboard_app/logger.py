@@ -8,7 +8,7 @@ class Logger(logging.Logger):
     SEND = 12
     RECEIVE = 13
     HANDLER = 14
-    def __init__(self, name, consoleLvl=0):
+    def __init__(self, name, consoleLvl=0, debug=False):
         logging.Logger.__init__(self, name)
         logging.addLevelName(Logger.ACTION, 'ACTION')
         logging.addLevelName(Logger.SEND, 'SEND')
@@ -20,9 +20,12 @@ class Logger(logging.Logger):
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
         self.addHandler(file_handler)
-        if consoleLvl:
+        if debug:
             steam_handler = logging.StreamHandler()
-            steam_handler.setLevel(consoleLvl)
+            handler_formatter = logging.Formatter('%(levelname)-7s: %(message)s')
+            steam_handler.setLevel(0)
+            steam_handler.setFormatter(formatter)
+            steam_handler.setFormatter(handler_formatter)
             self.addHandler(steam_handler)
             
     def action(self, msg, *args, **kwargs):
