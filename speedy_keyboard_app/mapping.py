@@ -196,6 +196,7 @@ class Mapping:
     def __init__(self, name=''):
         self.name = ''
         self.title = ''
+        self._notify = False
         self.shortcut = ShortcutSubMapping(self)
         self.remap = RemapSubMapping(self)
         if name:
@@ -214,6 +215,7 @@ class Mapping:
         if self.name:
             tree = loadTree()
             root = tree.getroot()
+            root.set('notify', str(self._notify).lower())
             oldMapping = root.find("mapping[@name='{}']".format(self.name))
             if oldMapping is not None:
                 root.remove(oldMapping)
@@ -235,6 +237,12 @@ class Mapping:
         self.shortcut.clear()
         self.remap.clear()
     
+    def notify(self):
+        return self._notify
+    
+    def setNotify(self, val):
+        self._notify = val
+    
     def loadCurrent(self):
         tree = loadTree()
         root = tree.getroot()
@@ -248,6 +256,7 @@ class Mapping:
     def load(self, name):
         tree = loadTree()
         root = tree.getroot()
+        self._notify = {'true': True, 'false': False}.get(root.get('notify'), False)
         mappingElt = root.find("mapping[@name='{}']".format(name))
         if mappingElt is not None:
             self.name = name
@@ -301,7 +310,7 @@ def loadTree():
     try:
         tree = ET.parse(configPath)
     except:
-        elt = ET.Element('mappingList', attrib={'version': '1.0'})
+        elt = ET.Element('mappingList', attrib={'notify': 'true', 'version': '1.0'})
         tree = ET.ElementTree(elt)
     return tree     
     
