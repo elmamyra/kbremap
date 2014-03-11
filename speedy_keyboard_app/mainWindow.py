@@ -6,29 +6,32 @@ from PySide.QtGui import *  # @UnusedWildImport
 from PySide.QtCore import * # @UnusedWildImport
 from keyboardview import KeyboardView
 from dialogNew import DialogNew
+import preferences
 import network
 import mapping
 import data as cst
 import icons
+import util
 import info
 import os, sys
 from subprocess import Popen
 import __main__
-import dbus
 PORT = 45691
 
 class MainWindow(QMainWindow):
+    modelChanged = Signal(str)
+    autoStartChanged = Signal(bool)
+    autoUpdateChanged = Signal(bool)
+    notifyChanged = Signal(bool)
     updated = Signal()
     def __init__(self):
         super(MainWindow, self).__init__()
         self.action = Action(self)
-#         self.setWindowState(Qt.WindowActive)
-
-        
         centralWidget = QWidget(self)
         layout = QVBoxLayout(centralWidget)
         self.keyboardEditor = KeyboardView(centralWidget, self)
         self.keyboardEditor.setFocus()
+        self._autoUpdate = False
         layout.addWidget(self.keyboardEditor)
         self.setCentralWidget(centralWidget)
         self.readSettings()
@@ -52,6 +55,10 @@ class MainWindow(QMainWindow):
         self.network.messageReceived.connect(self.slotMessageReceived)
         self.network.serverClosed.connect(self.slotServerClosed)
         self.network.connect_()
+        self.modelChanged.connect(self.slotKeyboardModel)
+        self.autoStartChanged.connect(self.slotAutoStart)
+        self.autoUpdateChanged.connect(self.slotAutoUpdate)
+        self.notifyChanged.connect(self.slotNotify)
         self.show()
     
     
@@ -127,8 +134,9 @@ class MainWindow(QMainWindow):
         self.keyboardEditor.loadLayout()
         
         self.action.loadAction.setEnabled(bool(mapping.getAllNames()))
-        autoStart = {'true': True, 'false': False}[settings.value('autoStart', 'false')]
-        self.action.autoStartAction.setChecked(autoStart)
+        self._autoUpdate = util.str2bool(settings.value('autoUpdate', 'false'))
+#         autoStart = {'true': True, 'false': False}[settings.value('autoStart', 'false')]
+#         self.action.autoStartAction.setChecked(autoStart)
         
     def setMenu(self):
         a = self.action
@@ -143,23 +151,9 @@ class MainWindow(QMainWindow):
         menuFile.addSeparator()
         menuFile.addAction(a.importAction)
         menuFile.addAction(a.exportAction)
-        
         menuFile.addSeparator()
-        
-#         keyboardModel = menuFile.addMenu(self.tr("keyboard model"))
-#         keyboardModel.triggered.connect(self.slotKeyboardModel)
-#         modList = ((self.tr('Generic 101'), 'generic_101'), 
-#                    (self.tr('Generic 102'), 'generic_102'),
-#                    (self.tr('Generic 104'), 'generic_104'),
-#                    (self.tr('Generic 105'), 'generic_105'),
-#                    ('TypeMatrix', 'typeMatrix'),
-#                    )
-#         self.modelActionGroup = ag = QActionGroup(self, exclusive=True)
-
-#         for title, name in modList:
-#             modAct = ag.addAction(QAction(title, self, checkable=True, checked=name==self.keyboardModel))
-#             modAct.setData(name)
-#             keyboardModel.addAction(modAct)
+        menuFile.addAction(a.preferencesAction)
+        menuFile.addSeparator()
         
         menuFile.addSeparator()
         
@@ -172,23 +166,23 @@ class MainWindow(QMainWindow):
         menuServer.addAction(a.daemonStopAction)
         menuServer.addAction(a.syncAction)
         menuServer.addSeparator()
-        menuServer.addAction(a.autoStartAction)
+#         menuServer.addAction(a.autoStartAction)
         
         menuKeyboard = menu.addMenu(self.tr("Keyboard"))
-        keyboardModel = menuKeyboard.addMenu(self.tr("keyboard model"))
-        keyboardModel.triggered.connect(self.slotKeyboardModel)
-        modList = ((self.tr('Generic 101'), 'generic_101'), 
-                   (self.tr('Generic 102'), 'generic_102'),
-                   (self.tr('Generic 104'), 'generic_104'),
-                   (self.tr('Generic 105'), 'generic_105'),
-                   ('TypeMatrix', 'typeMatrix'),
-                   )
-        self.modelActionGroup = ag = QActionGroup(self, exclusive=True)
+#         keyboardModel = menuKeyboard.addMenu(self.tr("keyboard model"))
+#         keyboardModel.triggered.connect(self.slotKeyboardModel)
+#         modList = ((self.tr('Generic 101'), 'generic_101'), 
+#                    (self.tr('Generic 102'), 'generic_102'),
+#                    (self.tr('Generic 104'), 'generic_104'),
+#                    (self.tr('Generic 105'), 'generic_105'),
+#                    ('TypeMatrix', 'typeMatrix'),
+#                    )
+#         self.modelActionGroup = ag = QActionGroup(self, exclusive=True)
         
-        for title, name in modList:
-            modAct = ag.addAction(QAction(title, self, checkable=True, checked=name==self.keyboardModel))
-            modAct.setData(name)
-            keyboardModel.addAction(modAct)
+#         for title, name in modList:
+#             modAct = ag.addAction(QAction(title, self, checkable=True, checked=name==self.keyboardModel))
+#             modAct.setData(name)
+#             keyboardModel.addAction(modAct)
             
         menuMode = menuKeyboard.addMenu(self.tr("Mode"))
         menuMode.addAction(a.shortcutModeAction)
@@ -251,13 +245,12 @@ class MainWindow(QMainWindow):
         
     
     
-    def slotKeyboardModel(self, act):
-        self.keyboardEditor.setModel(act.data())
+    def slotKeyboardModel(self, modelName):
+        self.keyboardEditor.setModel(modelName)
     
     def slotModified(self):
-#         self.network.send('update')
-        QTimer.singleShot(500, lambda: self.network.send('update'))
-#         self.save()
+        if self._autoUpdate:
+            QTimer.singleShot(100, lambda: self.network.send('update'))
 
     def slotNew(self):
         dlg = DialogNew(self)
@@ -321,6 +314,11 @@ class MainWindow(QMainWindow):
         
     def slotExport(self):
         print 'not implemented'
+        
+    def slotPreference(self):
+        dlg = preferences.PreferenceDialog(self)
+#         dlg.modelChanged.connect(self.slotKeyboardModel)
+        dlg.exec_()
     
     def slotDeamonStart(self):
         if not self.network.isConnected():
@@ -359,9 +357,16 @@ class MainWindow(QMainWindow):
             if os.path.exists(filePath):
                 os.remove(filePath)
     
+    def slotAutoUpdate(self, val):
+        self._autoUpdate = val
+    
+    def slotNotify(self, val):
+        self.network.send('change-notify {}'.format(val))
+        
     def slotModeChanged(self, act):
         self.keyboardEditor.setMode(act.data())
         self.keyboardEditor.loadLayout()
+        
     
     def currentMode(self):
         return self.action.modeGroupAction.checkedAction().data()
@@ -371,12 +376,12 @@ class MainWindow(QMainWindow):
         s = QSettings()
         s.setValue("geometry", self.saveGeometry())
         s.setValue("windowState", self.saveState())
-        s.setValue("keyboardModel", self.modelActionGroup.checkedAction().data())
+#         s.setValue("keyboardModel", self.modelActionGroup.checkedAction().data())
         s.setValue("mode", self.currentMode())
 #         if self._mapping.isValid():
 #             s.setValue('mapping', self._mapping.name())
             
-        s.setValue('autoStart', self.action.autoStartAction.isChecked())
+#         s.setValue('autoStart', self.action.autoStartAction.isChecked())
         
         QMainWindow.closeEvent(self, event)
 
@@ -385,7 +390,7 @@ class Action(QObject):
         QObject.__init__(self, parent)
         def act(text, slot, shortcut=None, icon=None):
             a = QAction(text, parent, triggered=slot)
-#             parent.addAction(a)
+            parent.addAction(a)
             a.setShortcutContext(Qt.WidgetWithChildrenShortcut)
             shortcut and a.setShortcut(QKeySequence(shortcut))
             icon and a.setIcon(icons.get(icon))
@@ -403,25 +408,31 @@ class Action(QObject):
         self.deleteAction = act(self.tr("Delete"), parent.slotDelete, Qt.Key_D, 'edit-delete')
         self.importAction = act(self.tr("Import..."), parent.slotImport, Qt.Key_I, 'folder-open')
         self.exportAction = act(self.tr("Export..."), parent.slotExport, Qt.Key_X, 'document-save-as')
+        self.preferencesAction = act(self.tr("Prefernces..."), parent.slotPreference, Qt.Key_P, 'preferences-system')
         self.quitAction = act(self.tr("Quit"), parent.close, Qt.Key_Q, 'application-exit')
         
         self.daemonStartAction = act(self.tr("Start"), parent.slotDeamonStart, None, 'media-playback-start')
-        self.daemonPauseAction = QAction(icons.get('media-playback-pause'), self.tr("Pause/Resume"), parent)
-        self.daemonPauseAction.setCheckable(True)
-        self.daemonPauseAction.toggled.connect(parent.slotDeamonPause)
+        self.daemonPauseAction = a = QAction(icons.get('media-playback-pause'), self.tr("Pause/Resume"), parent)
+        a.setCheckable(True)
+        a.toggled.connect(parent.slotDeamonPause)
+        parent.addAction(a)
         self.daemonStopAction = act(self.tr("Stop"), parent.slotDeamonStop, None, 'media-playback-stop')
         self.syncAction = act(self.tr("Synchronize"), parent.slotSync, None, 'sync')
-        self.autoStartAction = QAction(icons.get('gears-sticker'), self.tr("Launch at startup"), parent)
-        self.autoStartAction.setCheckable(True)
-        self.autoStartAction.toggled.connect(parent.slotAutoStart)
+#         self.autoStartAction = a = QAction(icons.get('gears-sticker'), self.tr("Launch at startup"), parent)
+        a.setCheckable(True)
+        a.toggled.connect(parent.slotAutoStart)
+        parent.addAction(a)
         self.modeGroupAction = mg = QActionGroup(parent)
-        self.modeGroupAction.triggered.connect(parent.slotModeChanged)
-        self.shortcutModeAction = mg.addAction(icons.get('shortcuts'), self.tr("Shortcut"))
-        self.shortcutModeAction.setCheckable(True)
+        mg.triggered.connect(parent.slotModeChanged)
+        self.shortcutModeAction = a = mg.addAction(icons.get('shortcuts'), self.tr("Shortcut"))
+        a.setCheckable(True)
+        a.setData(cst.SHORTCUT_MODE)
+        parent.addAction(a)
         self.shortcutModeAction.setData(cst.SHORTCUT_MODE)
-        self.remappingModeAction = mg.addAction(icons.get('keys'), self.tr("Remapping"))
-        self.remappingModeAction.setCheckable(True)
-        self.remappingModeAction.setData(cst.REMAPPING_MODE)
+        self.remappingModeAction = a = mg.addAction(icons.get('keys'), self.tr("Remapping"))
+        a.setCheckable(True)
+        a.setData(cst.REMAPPING_MODE)
+        parent.addAction(a)
 
 def start():
     app = QApplication(sys.argv)
