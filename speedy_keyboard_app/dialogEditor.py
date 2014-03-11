@@ -7,12 +7,11 @@ Dialog to add or edit a key.
 from PySide.QtGui import *  # @UnusedWildImport
 from PySide.QtCore import Signal
 from pageEditor import *  # @UnusedWildImport
-from widgets import IconChooser
-import util
+from widgets import IconChooser, Separator
 import data as d
 import icons
 import keyTools
-
+from keyTools import keyGroups
 
 class SearchDialog(QDialog):
     def __init__(self, parent=None):
@@ -38,11 +37,11 @@ class SearchDialog(QDialog):
         layout.addLayout(radioLayout)
         layout.addWidget(self.lineEdit)
         layout.addWidget(self.listWidget)
-        layout.addWidget(util.Separator())
+        layout.addWidget(Separator())
         layout.addWidget(buttonBox)
         
         self.keyData = []
-        for group in keyTools.keyGroups.keyGroups:
+        for group in keyGroups.groups:
             for keysym in group[1]:
                 char = keyTools.keysym2char(keysym)
                 name = keyTools.keysym2name(keysym)
@@ -115,7 +114,7 @@ class KeysymPicker(QWidget):
         self._keysym = 0
         
         menu = QMenu(self)
-        for group, data in keyTools.keyGroups.keyGroups:
+        for group, data in keyGroups.groups:
             m = menu.addMenu(group)
             for keysym in data:
                 char = keyTools.keysym2char(keysym)
@@ -228,7 +227,7 @@ class RemappingDialog(QDialog):
                                      rejected=self.reject, accepted=self.accept)
         
         layout.addStretch(1)
-        layout.addWidget(util.Separator())
+        layout.addWidget(Separator())
         layout.addWidget(buttonBox)
     
     def invalid(self):
@@ -285,7 +284,7 @@ class ShortcutDialog(QDialog):
         layout.addWidget(self.stackedWid)
         layout.addWidget(displayGroupBox)
         layout.addStretch(1)
-        layout.addWidget(util.Separator())
+        layout.addWidget(Separator())
         layout.addWidget(buttonBox)
         self.setLayout(layout)
         

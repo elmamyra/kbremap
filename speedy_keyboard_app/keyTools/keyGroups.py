@@ -1,5 +1,5 @@
 
-keyGroups = (
+groups = (
     ('miscellany' ,(
         0xff08,
         0xff09,

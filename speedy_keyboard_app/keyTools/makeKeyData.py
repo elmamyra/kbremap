@@ -1,16 +1,13 @@
-#from collections import namedtuple
-#from keysymdef import *
-
-#d = namedtuple('d', 'name char info')
+import speedy_keyboard_app.keyTools as keyTools
 
 pathDef = "/usr/include/X11/keysymdef.h"
-import keyTools
+
 
 
 
 with open(pathDef) as f:
     with open("keyGroups.py", 'w') as out:
-        out.write("\nkeyGroups = (\n")
+        out.write("\ngroups = (\n")
         start = False
         tab = ' '*4
         for line in f:
