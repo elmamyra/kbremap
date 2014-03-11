@@ -48,7 +48,10 @@ class Separator(QFrame):
     def orientation(self):
         return Qt.Vertical if self.frameStyle() & QFrame.VLine == QFrame.VLine else Qt.Horizontal
 
-    
+
+def str2bool(v):
+    return v.lower() in ('true', '1')
+ 
 def keyboardColors(name):
     return d.KEYBOARD_COLOR.get(name, QColor())
 
