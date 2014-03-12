@@ -4,6 +4,7 @@ import data as d
 import info
 import os
 import weakref
+import keyTools
 
 
 def saveDialogSize(dialog, key, default=QSize()):
@@ -37,4 +38,12 @@ def configPath(fileName='mappings.xml'):
         configDir = os.environ.get('XDG_CONFIG_HOME') or os.path.expanduser("~/.config")
         return os.path.join(configDir, info.name, fileName)
 
-
+def keysym2text(keysym):
+        text = ''
+        name = keyTools.keysym2name(keysym)
+        if name:
+            char = keyTools.keysym2char(keysym)
+            text = name
+            if char and name != char:
+                text = u'{} ({})'.format(text, char)
+        return text
