@@ -320,8 +320,8 @@ class KeyTools:
         self._clipPrimay.store()
                 
     def sendKeysym(self, keysym):
-        entry = self.keysym2entry(keysym)
-        if entry:
+        entries = self.keysym2deadEntries(keysym)
+        for entry in entries:
             self.sendEntry(*entry)
     
     def sendEntry(self, keycode, mod):
