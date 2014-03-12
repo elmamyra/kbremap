@@ -126,7 +126,9 @@ class KeyBase(QGraphicsRectItem):
             t = self._shortcutItem.type
             data = self._shortcutItem.data
             name = d.DATA_TYPE[t].title
-            if t == d.SHORTCUT:
+            if t == d.KEY:
+                val = keyTools.keysym2name(data)
+            elif t == d.SHORTCUT:
                 val = data[2]
             else:
                 val = data
