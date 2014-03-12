@@ -10,6 +10,7 @@ with open(pathDef) as f:
         out.write("\ngroups = (\n")
         start = False
         tab = ' '*4
+        last = ''
         for line in f:
             if line.startswith("#ifdef"):
                 group = line.split()[1][3:].lower()
@@ -34,7 +35,9 @@ with open(pathDef) as f:
                         char = 'u"\\u{0:04x}"'.format(uni)
                     else:
                         char = '""'
-                    out.write('{}{},\n'.format(tab, keysymHex))
+                    if last != keysymHex:
+                        out.write('{}{},\n'.format(tab, keysymHex))
+                    last = keysymHex
 #                     out.write('{}("{}", {}, {}),\n'.format(tab, name, keysymHex, char))
                     
         out.write(")")
