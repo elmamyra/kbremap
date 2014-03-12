@@ -6,7 +6,6 @@ Dialog to add or edit a key.
 
 from PySide.QtGui import *  # @UnusedWildImport
 from PySide.QtCore import Signal
-import keyTools
 from keyTools import keyGroups
 from pageEditor import *  # @UnusedWildImport
 from widgets import IconChooser, Separator
@@ -14,83 +13,6 @@ import data as d
 import icons
 
 
-class SearchDialog(QDialog):
-    def __init__(self, parent=None):
-        QDialog.__init__(self, parent)
-        self.setWindowTitle(self.tr('Search'))
-        layout = QVBoxLayout(self)
-        radioLayout = QHBoxLayout()
-        self._keysym = 0
-        
-        self.radioGroup = QButtonGroup(self)
-        self.radioByName = QRadioButton(self.tr('By key name'), checked=True)
-        self.radioByChar = QRadioButton(self.tr('By character'))
-        self.radioGroup.addButton(self.radioByName, 0)
-        self.radioGroup.addButton(self.radioByChar, 1)
-        radioLayout.addWidget(self.radioByName)
-        radioLayout.addWidget(self.radioByChar)
-        self.lineEdit = QLineEdit()
-        self.listWidget = QListWidget()
-        
-        buttonBox = QDialogButtonBox(QDialogButtonBox.Close,
-                                     rejected=self.reject)
-        
-        layout.addLayout(radioLayout)
-        layout.addWidget(self.lineEdit)
-        layout.addWidget(self.listWidget)
-        layout.addWidget(Separator())
-        layout.addWidget(buttonBox)
-        
-        self.keyData = []
-        for group in keyGroups.groups:
-            for keysym in group[1]:
-                char = keyTools.keysym2char(keysym)
-                name = keyTools.keysym2name(keysym)
-                self.keyData.append((name, char, keysym))
-                
-        self.keyData = tuple(set(self.keyData))
-                
-        self.lineEdit.setFocus()
-        self.lineEdit.textChanged.connect(self.slotTextChanged)
-        self.radioGroup.buttonReleased[int].connect(self.slotRadio)
-        self.listWidget.itemActivated.connect(self.slotChoose)
-        
-    
-    def fillList(self, text):
-        self.listWidget.clear()
-        if not text:
-            return
-        li = []
-        if self.radioGroup.checkedId() == 0:
-            for data in self.keyData:
-                if text.lower() in data[0].lower():
-                    li.append(data)
-        else:
-            for data in self.keyData:
-                if text == data[1]:
-                    li.append(data)
-                    
-        for data in sorted(li, key=lambda x: x[0].lower()):
-            label = data[0]
-            if data[1]:
-                label = u'{} ({})'.format(label, data[1])
-            item = QListWidgetItem(label)
-            item.setData(Qt.UserRole, data[2])
-            self.listWidget.addItem(item)
-    
-    def slotTextChanged(self, text):
-        self.fillList(text)
-         
-    def slotRadio(self, index):
-        self.fillList(self.lineEdit.text())
-        self.lineEdit.setFocus()
-    
-    def slotChoose(self, item):
-        self._keysym = item.data(Qt.UserRole)
-        self.accept()
-        
-    def keysym(self):
-        return self._keysym
         
 class KeysymPicker(QWidget):
     def __init__(self, parent=None):
@@ -100,8 +22,7 @@ class KeysymPicker(QWidget):
         menuButton = QToolButton()
         menuButton.setText('...')
         menuButton.setPopupMode(QToolButton.InstantPopup)
-        searchButton = QToolButton()
-        searchButton.setIcon(icons.get('search'))
+        searchButton = SearchButton()
         self.lineEdit = QLineEdit()
         self.label = QLabel()
         self.label.setMinimumWidth(150)
@@ -115,17 +36,19 @@ class KeysymPicker(QWidget):
         self._keysym = 0
         
         menu = QMenu(self)
+        keysymList = []
         for group, data in keyGroups.groups:
             m = menu.addMenu(group)
             for keysym in data:
-                char = keyTools.keysym2char(keysym)
-                name = keyTools.keysym2name(keysym)
-                a = m.addAction(u"{}  {}".format(char, name))
+                a = m.addAction(util.keysym2text(keysym))
                 a.setData(keysym)
+                keysymList.append(keysym)
                 
+        searchButton.setKeysyms(keysymList)        
+        
         menuButton.setMenu(menu)
         menu.triggered.connect(self.slotMenu)
-        searchButton.pressed.connect(self.slotSearch)
+        searchButton.keysymSelected.connect(self.slotSearch)
         self.lineEdit.textChanged.connect(self.slotKeysymChanged)
     
     def _setLineEditText(self, keysym):
@@ -140,10 +63,8 @@ class KeysymPicker(QWidget):
         else:
             self.label.setText(self.tr("Invalid"))
         
-    def slotSearch(self):    
-        dlg = SearchDialog(self)
-        if dlg.exec_():
-            self.setKeysym(dlg.keysym())
+    def slotSearch(self, keysym):    
+        self.setKeysym(keysym)
             
     def keysym(self):
         text = self.lineEdit.text()
