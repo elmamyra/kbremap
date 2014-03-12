@@ -91,6 +91,8 @@ class Handler(object):
                     self.log.handler_('item send: type=%s, data=%s', item.type, item.data)
                     if item.type == d.TEXT:
                         self.keyTools.sendText(item.data)
+                    elif item.type == d.KEY:
+                        self.keyTools.sendKeysym(item.data)
                     elif item.type == d.SHORTCUT:
                         self.keyTools.sendEntry(item.data[0], item.data[1])
                     elif item.type == d.COMMAND:
