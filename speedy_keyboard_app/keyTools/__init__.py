@@ -188,13 +188,15 @@ class KeyTools:
         return self.filterGroup(self._keymap.get_entries_for_keycode(keycode))
     
     def keysym2entry(self, keysym):
-        infos = gdk.keymap_get_default().get_entries_for_keyval(keysym)  # @UndefinedVariable
+        infos = self._keymap.get_entries_for_keyval(keysym)  # @UndefinedVariable
         if infos:
             for info in infos:
+                print info
                 if info[1] == self._group:
                     keycode = info[0]
-                    mod = LEVEL_MOD[info[2]]
-                    return keycode, mod
+                    if info[2] < 4:
+                        mod = LEVEL_MOD[info[2]]
+                        return keycode, mod
             
         return None
     
