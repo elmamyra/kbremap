@@ -54,7 +54,7 @@ DEAD_KEYS = (
     'SCHWA',
 )
 
-LEVEL_MOD = (0, X.ShiftMask, X.Mod5Mask, X.ShiftMask | X.Mod5Mask)
+LEVEL_MOD = (0, X.ShiftMask, X.Mod5Mask, X.ShiftMask | X.Mod5Mask, X.ControlMask | X.Mod1Mask)
 
 class KeyTools:
     KEY_PRESS = X.KeyPress
@@ -64,7 +64,6 @@ class KeyTools:
         self._xroot = self._xdisplay.screen().root
         self._clipboard = gtk.clipboard_get()
         self._clipPrimay = gtk.clipboard_get("PRIMARY")
-#         self._entryForCopy = 0xff63, X.ControlMask
         self._entryForPaste = 118, X.ShiftMask
         self._group = 0
         self.loadModifiers()
@@ -188,17 +187,40 @@ class KeyTools:
         return self.filterGroup(self._keymap.get_entries_for_keycode(keycode))
     
     def keysym2entry(self, keysym):
+        if not keysym:
+            return None
+        
         infos = self._keymap.get_entries_for_keyval(keysym)  # @UndefinedVariable
         if infos:
             for info in infos:
-                print info
-                if info[1] == self._group:
-                    keycode = info[0]
-                    if info[2] < 4:
-                        mod = LEVEL_MOD[info[2]]
+                keycode, group, level = info
+                if group == self._group:
+                    if level < len(LEVEL_MOD):
+                        mod = LEVEL_MOD[level]
                         return keycode, mod
             
         return None
+    
+    def keysym2deadEntries(self, keysym):
+        resp = ()
+        entry = self.keysym2entry(keysym)
+        if entry:
+            keycode, mod = entry
+            resp = ((keycode, mod), )
+            
+        if not resp:
+            deadKeys = self.findWithDeadKey(keysym)
+            if deadKeys:
+                keyKeysym, deadKeysym = deadKeys
+                keyKeycodes = self.keysym2entry(keyKeysym)
+                deadKeycodes = self.keysym2entry(deadKeysym)
+                if keyKeycodes and deadKeycodes:
+                    keyKeycode, keyMod = keyKeycodes
+                    deadKeycode, deadMod = deadKeycodes
+                    resp = ((deadKeycode, deadMod), (keyKeycode, keyMod))
+              
+        return resp
+        
     
     def keycode2charsAndNames(self, keycode):
         entries = self.keycode2entries(keycode)
@@ -219,29 +241,12 @@ class KeyTools:
         entries = self.keycode2entries(keycode)
         return [e[0] for e in entries][:4]
                 
-    def char2keycodes(self, char):
-        resp = ()
-        
+    def char2entries(self, char):
         keysym = gdk.unicode_to_keyval(ord(char))  # @UndefinedVariable
         if keysym:
-            entry = self.keysym2entry(keysym)
-            print entry
-            if entry:
-                keycode, mod = entry
-                resp = ((keycode, mod), )
+            return self.keysym2deadEntries(keysym)
         
-        if not resp:
-            deadKeys = self.findWithDeadKey(keysym)
-            if deadKeys:
-                keyKeysym, deadKeysym = deadKeys
-                keyKeycodes = self.keysym2entry(keyKeysym)
-                deadKeycodes = self.keysym2entry(deadKeysym)
-                if keyKeycodes and deadKeycodes:
-                    keyKeycode, keyMod = keyKeycodes
-                    deadKeycode, deadMod = deadKeycodes
-                    resp = ((deadKeycode, deadMod), (keyKeycode, keyMod))
-              
-        return resp
+        return ()
     
     def findWithDeadKey(self, keysym):
         name = gdk.keyval_name(keysym)  # @UndefinedVariable
