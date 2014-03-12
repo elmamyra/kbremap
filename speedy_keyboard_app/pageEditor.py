@@ -1,9 +1,10 @@
 
 from PySide.QtGui import *  # @UnusedWildImport
 from PySide.QtCore import Qt, QPoint
-from widgets import ShortcutWidget
+from widgets import ShortcutWidget, SearchButton
 import os
 import mapping
+import util
 import keyTools
 
 class PageBase(QWidget):
@@ -53,6 +54,7 @@ class PageText(PageBase):
     
     def errorMessage(self):
         return self.tr("You must enter a text to send.")
+
     
 class PageKey(PageBase):
     def __init__(self, dialog):
@@ -62,43 +64,46 @@ class PageKey(PageBase):
         ktools = keyTools.KeyTools()
         menu = QMenu(self)
         self.menuButton = QPushButton()
+        searchButton = SearchButton()
         self.menuButton.setText(self.tr("Choose..."))
+        keysyms = []
         for group, data in keyTools.keyGroups.groups:
             m = QMenu(group)#menu.addMenu(group)
             for keysym in data:
-                if ktools.keysym2entry(keysym):
-                    a = m.addAction(self.text(keysym))
+                if ktools.keysym2deadEntries(keysym):
+                    a = m.addAction(util.keysym2text(keysym))
                     a.setData(keysym)
+                    keysyms.append(keysym)
                     
             if not m.isEmpty():
-                if m.actions()[0].data() != keyTools.name2keysym('Mode_switch'):
-                    menu.addMenu(m)
-                    
-                    
-                
+                menu.addMenu(m)
+            
+        searchButton.setKeysyms(keysyms)
         self.menuButton.setMenu(menu)
-        menu.triggered.connect(self.slotMenu)
+        self.layout.setSpacing(2)
         self.layout.addWidget(self.menuButton)
+        self.layout.addWidget(searchButton)
         self.layout.addStretch(1)
+
+        menu.triggered.connect(self.slotMenu)
+        searchButton.keysymSelected.connect(self.slotSearch)
+        
     def slotMenu(self, act):
         self._keysym = act.data()
-        self.menuButton.setText(self.text(self._keysym))
+        self.updateButtonText()
+    
+    def updateButtonText(self):
+        self.menuButton.setText(util.keysym2text(self._keysym))
         text = keyTools.keysym2char(self._keysym) or keyTools.keysym2name(self._keysym)[:5]
         self.dialog.textEvent.emit(text)
     
-    def text(self, keysym):
-        text = ''
-        name = keyTools.keysym2name(keysym)
-        if name:
-            char = keyTools.keysym2char(keysym)
-            text = name
-            if char and name != char:
-                text = u'{} ({})'.format(text, char)
-        return text
+    def slotSearch(self, keysym):
+        self._keysym = keysym
+        self.updateButtonText()
     
     def setData(self, data):
         self._keysym = data
-        self.menuButton.setText(self.text(data))
+        self.updateButtonText()
         
     def data(self):
         return self._keysym
