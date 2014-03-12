@@ -32,9 +32,6 @@ groups = (
         0xff2e,
         0xff2f,
         0xff30,
-        0xff37,
-        0xff3d,
-        0xff3e,
         0xff50,
         0xff51,
         0xff52,
@@ -152,7 +149,6 @@ groups = (
         0xfe11,
         0xfe12,
         0xfe13,
-        0xff7e,
         0xfe06,
         0xfe07,
         0xfe08,
@@ -733,7 +729,6 @@ groups = (
         0x04dd,
         0x04de,
         0x04df,
-        0xff7e,
     )),
 
     ('arabic' ,(
@@ -825,7 +820,6 @@ groups = (
         0x10006cc,
         0x10006d2,
         0x10006c1,
-        0xff7e,
     )),
 
     ('cyrillic' ,(
@@ -1028,7 +1022,6 @@ groups = (
         0x07f7,
         0x07f8,
         0x07f9,
-        0xff7e,
     )),
 
     ('technical' ,(
@@ -1248,7 +1241,6 @@ groups = (
         0x0cf8,
         0x0cf9,
         0x0cfa,
-        0xff7e,
     )),
 
     ('thai' ,(
@@ -1345,16 +1337,11 @@ groups = (
         0xff34,
         0xff35,
         0xff36,
-        0xff37,
         0xff38,
         0xff39,
         0xff3a,
         0xff3b,
-        0xff3c,
-        0xff3d,
-        0xff3e,
         0xff3f,
-        0xff7e,
         0x0ea1,
         0x0ea2,
         0x0ea3,
