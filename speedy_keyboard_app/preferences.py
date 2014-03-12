@@ -1,7 +1,8 @@
 
 from PySide.QtGui import *  # @UnusedWildImport
-from PySide.QtCore import Signal, QSettings
+from PySide.QtCore import QSettings
 import util
+from widgets import Separator
 
 
 class PreferenceDialog(QDialog):
@@ -55,7 +56,7 @@ class PreferenceDialog(QDialog):
         layout.addWidget(updateCheck)
         layout.addWidget(notifyCheck)
         layout.addLayout(modelLayout)
-        layout.addWidget(util.Separator())
+        layout.addWidget(Separator())
         layout.addWidget(buttonBox)
     
     
