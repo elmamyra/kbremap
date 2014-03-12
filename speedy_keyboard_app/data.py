@@ -2,7 +2,7 @@ from PySide.QtGui import QColor
 from PySide.QtCore import  QObject
 from collections import namedtuple
 
-TEXT, COMMAND, SHORTCUT, LOAD, PAUSE, STOP, RUN_EDITOR = range(7)
+TEXT, KEY, COMMAND, SHORTCUT, LOAD, PAUSE, STOP, RUN_EDITOR = range(8)
 
 SHORTCUT_MODE, REMAPPING_MODE = range(2) 
 
@@ -15,6 +15,7 @@ t = namedtuple('t', 'title icon')
 tr = QObject().tr
 DATA_TYPE = {
             TEXT: t(tr("Text"), 'text'),
+            KEY: t(tr("Key"), 'keys'),
             COMMAND: t(tr("Command"), 'utilities-terminal'),
             SHORTCUT: t(tr("Shortcut"), 'shortcuts'),
             LOAD: t(tr("Load"), 'document-open'),
