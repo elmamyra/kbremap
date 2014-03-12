@@ -1,9 +1,11 @@
 
 from PySide.QtGui import *  # @UnusedWildImport
 from PySide.QtCore import QSettings, QSize, Signal, Qt
-# import data
 import icons
 import os
+import util
+import keyTools
+
 
 class IconChooser(QToolButton):
     iconChanged = Signal()
@@ -89,6 +91,97 @@ class ShortcutWidget(QLineEdit):
         return self.nativeKeycode, self.nativeModifiers, self.text()
 
 
+class SearchDialog(QDialog):
+    def __init__(self, parent=None, keysymList=[]):
+        QDialog.__init__(self, parent)
+        self.setWindowTitle(self.tr('Search'))
+        layout = QVBoxLayout(self)
+        radioLayout = QHBoxLayout()
+        self._keysym = 0
+        
+        self.radioGroup = QButtonGroup(self)
+        self.radioByName = QRadioButton(self.tr('By key name'), checked=True)
+        self.radioByChar = QRadioButton(self.tr('By character'))
+        self.radioGroup.addButton(self.radioByName, 0)
+        self.radioGroup.addButton(self.radioByChar, 1)
+        radioLayout.addWidget(self.radioByName)
+        radioLayout.addWidget(self.radioByChar)
+        self.lineEdit = QLineEdit()
+        self.listWidget = QListWidget()
+        
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Close,
+                                     rejected=self.reject)
+        
+        layout.addLayout(radioLayout)
+        layout.addWidget(self.lineEdit)
+        layout.addWidget(self.listWidget)
+        layout.addWidget(Separator())
+        layout.addWidget(buttonBox)
+        
+        self.keyData = []
+        for keysym in keysymList:
+            char = keyTools.keysym2char(keysym)
+            name = keyTools.keysym2name(keysym)
+            self.keyData.append((name, char, keysym))
+                
+        self.keyData = tuple(set(self.keyData))
+                
+        self.lineEdit.setFocus()
+        self.lineEdit.textChanged.connect(self.slotTextChanged)
+        self.radioGroup.buttonReleased[int].connect(self.slotRadio)
+        self.listWidget.itemActivated.connect(self.slotChoose)
+        
+    
+    def fillList(self, text):
+        self.listWidget.clear()
+        if not text:
+            return
+        li = []
+        if self.radioGroup.checkedId() == 0:
+            for data in self.keyData:
+                if text.lower() in data[0].lower():
+                    li.append(data)
+        else:
+            for data in self.keyData:
+                if text == data[1]:
+                    li.append(data)
+                    
+        for data in sorted(li, key=lambda x: x[0].lower()):
+            item = QListWidgetItem(util.keysym2text(data[2]))
+            item.setData(Qt.UserRole, data[2])
+            self.listWidget.addItem(item)
+    
+    def slotTextChanged(self, text):
+        self.fillList(text)
+         
+    def slotRadio(self, index):
+        self.fillList(self.lineEdit.text())
+        self.lineEdit.setFocus()
+    
+    def slotChoose(self, item):
+        self._keysym = item.data(Qt.UserRole)
+        self.accept()
+        
+    def keysym(self):
+        return self._keysym
+    
+class SearchButton(QToolButton):
+    keysymSelected = Signal(int)
+    def __init__(self, parent=None, keysymList=[]):
+        QToolButton.__init__(self, parent)
+        self.keysymList = keysymList
+        self.setIcon(icons.get('search'))
+        self.pressed.connect(self.slotSearch)
+    
+    def setKeysyms(self, keysyms):
+        self._keysyms = keysyms
+    
+    def slotSearch(self):
+        dlg = SearchDialog(self, self._keysyms)
+        if dlg.exec_():
+            self.keysymSelected.emit(dlg.keysym())
+            
+            
 class Separator(QFrame):
     def __init__(self, *args, **kwargs):
         QFrame.__init__(self, *args, **kwargs)
