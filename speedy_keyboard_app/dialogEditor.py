@@ -6,12 +6,13 @@ Dialog to add or edit a key.
 
 from PySide.QtGui import *  # @UnusedWildImport
 from PySide.QtCore import Signal
+import keyTools
+from keyTools import keyGroups
 from pageEditor import *  # @UnusedWildImport
 from widgets import IconChooser, Separator
 import data as d
 import icons
-import keyTools
-from keyTools import keyGroups
+
 
 class SearchDialog(QDialog):
     def __init__(self, parent=None):
@@ -289,7 +290,7 @@ class ShortcutDialog(QDialog):
         self.setLayout(layout)
         
         
-        menuList = (d.TEXT, d.COMMAND, d.SHORTCUT, -1, d.LOAD, d.PAUSE, d.STOP, d.RUN_EDITOR)
+        menuList = (d.TEXT, d.KEY, d.COMMAND, d.SHORTCUT, -1, d.LOAD, d.PAUSE, d.STOP, d.RUN_EDITOR)
         #fill the menu
         for typ in menuList:
             if typ != -1:
@@ -299,6 +300,7 @@ class ShortcutDialog(QDialog):
                 self.typeChooser.insertSeparator(self.typeChooser.count())
         
         self.typeToPage = {d.TEXT: PageText(),
+                           d.KEY: PageKey(self),
                            d.COMMAND: PageCommand(self),
                            d.SHORTCUT: PageShortcut(),
                             d.LOAD: PageLoad(self)
