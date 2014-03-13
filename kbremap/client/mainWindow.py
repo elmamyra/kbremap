@@ -139,7 +139,6 @@ class MainWindow(QMainWindow):
         menuFile.addAction(a.newAction)
         menuFile.addMenu(a.loadMenu)
         menuFile.addAction(a.renameAction)
-#         menuFile.addAction(a.clearAction)
         menuFile.addAction(a.deleteAction)
         menuFile.addSeparator()
         menuFile.addAction(a.importAction)
@@ -239,6 +238,7 @@ class MainWindow(QMainWindow):
             self.enableAction()
             self.keyboardEditor.setEnabled(True)
             self.fillLoadMenu()
+            self.keyboardEditor.keyModified.emit()
             self.keyboardEditor.loadLayout()
         
     def load(self, name):
@@ -271,6 +271,7 @@ class MainWindow(QMainWindow):
             self.updateTitle()
             self.fillLoadMenu()
             self.keyboardEditor.setDisabled(True)
+            self.keyboardEditor.keyModified.emit()
             self.keyboardEditor.loadLayout()
             
     def slotImport(self):
