@@ -1,3 +1,35 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-import speedy_keyboard_app.main
+
+import argparse
+from kbremap import server
+
+
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument("-s", "--start", action="store_true",
+                    help="start the server")
+parser.add_argument("-p", "--pause", action="store_true",
+                    help="pause/resume the server")
+parser.add_argument("-q", "--quit", action="store_true",
+                    help="close the server")
+parser.add_argument("-d", "--debug", action="store_true", 
+                    help="show log in console")
+parser.add_argument("-e", "--editor", action="store_true", 
+                    help="Start the editor")
+
+
+args = parser.parse_args()
+
+if args.start:
+    server.start(args.debug)
+elif args.quit:
+    server.close()
+elif args.pause:
+    server.pause()
+elif args.editor:
+    from kbremap.client import mainWindow
+    mainWindow.start()
+else:
+    parser.print_help()
