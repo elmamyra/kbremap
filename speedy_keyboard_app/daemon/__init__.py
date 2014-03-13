@@ -33,6 +33,7 @@ class Daemon(object):
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.log = logger.Logger('server', debug=debug)
         self.handler = Handler(self)
+        self._notify = pynotify.Notification('', '')
         self._state = 'running'
         
     
@@ -86,7 +87,7 @@ class Daemon(object):
                     elif data == 'pause':
                         self.pause()
                     elif data == 'send-state':
-                        self.sendState()
+                        self.sendState(s)
                     elif data.startswith('change-notify'):
                         val = util.str2bool(data.split()[1])
                         self.handler.getMapping().setNotify(val)
@@ -97,11 +98,12 @@ class Daemon(object):
         self.notify('server closed')
         self.log.info('server closed')
         
-    def notify(self, msg):
+    def notify(self, msg, warning=False):
+        icon = 'dialog-warning' if warning else ''
         if self.handler.getMapping().notify():
-            n = pynotify.Notification(info.name,
-              msg)
-            n.show()
+            self._notify.close()
+            self._notify.update(info.name, msg, icon)
+            self._notify.show()
     
     def update(self):
         self.handler.update()
@@ -126,14 +128,19 @@ class Daemon(object):
         self.running = False
         self.handler.stop()
     
-    def sendState(self):
-        self.send('state {}'.format(self._state))
+    def sendState(self, client=None):
+        self.send('state {}'.format(self._state), client)
     
-    def send(self, msg):
-        for s in self.input:
-            if s != self.socket:
-                self.log.send('{} data sended : {}'.format(s.getpeername()[1], msg))
-                s.send(msg)
+    def send(self, msg, client=None):
+        text = '{} data sended : {}'
+        if client:
+            self.log.send(text.format(client.getpeername()[1], msg))
+            client.send(msg)
+        else:
+            for s in self.input:
+                if s != self.socket:
+                    self.log.send(text.format(s.getpeername()[1], msg))
+                    s.send(msg)
             
 
 def _send(msg):
