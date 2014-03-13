@@ -192,11 +192,25 @@ class PageShortcut(PageBase):
 class PageLoad(PageBase):
     def __init__(self, dialog):
         PageBase.__init__(self)
+        self.dialog = dialog
         self.combo = QComboBox()
         self.layout.addWidget(self.combo)
+        self.layout.addStretch(1)
         for name, title in mapping.getAllNamesAndTitles(True):
             self.combo.addItem(title, name)
             
+        if not self.combo.count():
+            self.combo.setDisabled(True)
+    
+        self.combo.currentIndexChanged[str].connect(self.slotCombo)
+    
+    def start(self):
+        self.dialog.textEvent.emit(self.combo.currentText())
+    
+    def slotCombo(self, title):
+        self.dialog.textEvent.emit(self.combo.currentText())
+    
+    
     def setData(self, data):
         index = self.combo.findData(data)
         self.combo.setCurrentIndex(index)
