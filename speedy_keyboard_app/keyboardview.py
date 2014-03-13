@@ -182,13 +182,15 @@ class KeyBase(QGraphicsRectItem):
     def setText(self, text, tooltip='', elide=True):
         size = self.view().keySize()
         if len(text) == 1:
-            self.font.setPixelSize(int(size/2))
-        elif len(text) == 2:
-            self.font.setPixelSize(int(size/2.5))
+            self.font.setPixelSize(int(size/2.3))
+        elif len(text) in (2, 3, 4):
+            self.font.setPixelSize(int(size/3.8))
         elif len(text) == 3:
             self.font.setPixelSize(int(size/3))
+        elif len(text) == 4:
+            self.font.setPixelSize(int(size/3.5))
         else:
-            self.font.setPixelSize(int(size/4))
+            self.font.setPixelSize(int(size/4.5))
         
         self.setToolTip('')
         if elide:
@@ -258,18 +260,8 @@ class KeyBase(QGraphicsRectItem):
                 char = char or names[i]
                 fontCoef = 3.5 if len(char) == 1 else 5.5
                 self.font.setPixelSize(standartSize / fontCoef)
-#                 if len(char) == 1:
-#                     self.font.setPixelSize(standartSize / 3.5)
-#                 else:
-#                     self.font.setPixelSize(standartSize / 5.5)
-                
                 metric = QFontMetrics(self.font)
-#                 if char.startswith('dead_'):
-#                     char = 'dead'
-
                 char = metric.elidedText(char, Qt.ElideRight, size.width()/2.0)
-                
-                
                 painter.setFont(self.font)
                 painter.drawText(getPos(i, metric.tightBoundingRect(char)), char)
         
