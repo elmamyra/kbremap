@@ -4,10 +4,8 @@ from .. import mapping
 import threading
 from subprocess import Popen, PIPE
 from .. import data as d
-from .. import logger
 import socket, sys
 
-# from speedy_keyboard_app import mainWindow
 PORT = 22347
 
 class Handler(object):
@@ -36,7 +34,6 @@ class Handler(object):
         th = threading.Thread(target=self.eventThread)
         th.start()
     
-    
     def send(self, msg):        
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -64,7 +61,6 @@ class Handler(object):
             
     def restoreMap(self):
         self.keyTools.resetMapping()
-    
             
     def stop(self):
         self.running = False
@@ -96,7 +92,11 @@ class Handler(object):
                     elif item.type == d.SHORTCUT:
                         self.keyTools.sendEntry(item.data[0], item.data[1])
                     elif item.type == d.COMMAND:
-                        Popen(item.data.split(), close_fds=True)
+                        try:
+                            Popen(item.data.split(), close_fds=True)
+                        except OSError, msg:
+                            self.log.warning('The command "%s" failed: %s', item.data, msg)
+                            self.daemon.notify('The command <b>{}</b> failed'.format(item.data), True)
                     elif item.type == d.PAUSE:
                         self.send('pause')
                     elif item.type == d.STOP:
