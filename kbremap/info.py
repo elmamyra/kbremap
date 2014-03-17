@@ -23,7 +23,7 @@ Information about the Speedy keyboard application.
 """
 
 
-name = "speedy-keyboard"
+name = "kbremap"
 version = "0.1"
 description = "X11 keyboard editor"
 long_description = "TODO"
