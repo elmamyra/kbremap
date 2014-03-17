@@ -129,7 +129,7 @@ class MainWindow(QMainWindow):
         self.keyboardEditor.loadLayout()
         
         self.action.loadAction.setEnabled(bool(mapping.getAllNames()))
-        self._autoUpdate = util.str2bool(settings.value('autoUpdate', 'false'))
+        self._autoUpdate = util.str2bool(settings.value('autoUpdate', 'true'))
         
     def setMenu(self):
         a = self.action
