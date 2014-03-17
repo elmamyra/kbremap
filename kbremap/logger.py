@@ -1,7 +1,7 @@
 import logging
 from logging.handlers import RotatingFileHandler
 import util
-
+import os
 
 class Logger(logging.Logger):
     ACTION = 11
@@ -16,7 +16,10 @@ class Logger(logging.Logger):
         logging.addLevelName(Logger.HANDLER, 'HANDLER')
         self.setLevel(logging.DEBUG)
         formatter = logging.Formatter('%(asctime)s :: %(levelname)-7s :: %(message)s')
-        file_handler = RotatingFileHandler(util.configPath('{}.log'.format(name)), 'a', 100000, 1)
+        path = util.configPath('{}.log'.format(name))
+        if not os.path.exists(util.configPath('')):
+            os.makedirs(util.configPath(''))
+        file_handler = RotatingFileHandler(path, 'a', 100000, 1)
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
         self.addHandler(file_handler)
