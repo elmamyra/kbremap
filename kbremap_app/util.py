@@ -64,3 +64,29 @@ def keysym2text(keysym):
             if char and name != char:
                 text = u'{} ({})'.format(text, char)
         return text
+
+
+def isblank(s):
+    """Return True if s is empty or whitespace only."""
+    return not s or s.isspace()
+ 
+def indentXML(elem, indent_string="    ", level=0):
+    """Indent the XML in element.
+    
+    Text content that is already non-whitespace is not changed.
+    
+    """
+    # based on http://effbot.org/zone/element-lib.htm#prettyprint
+    i = "\n" + indent_string * level
+    if len(elem):
+        if isblank(elem.text):
+            elem.text = i + indent_string
+        if isblank(elem.tail):
+            elem.tail = i
+        for elem in elem:
+            indentXML(elem, indent_string, level+1)
+        if isblank(elem.tail):
+            elem.tail = i
+    else:
+        if level and isblank(elem.tail):
+            elem.tail = i
