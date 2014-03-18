@@ -158,7 +158,7 @@ class SubMappingBase:
             
             elt = self.toXml()
             mapping.append(elt)
-            indent(root)
+            util.indentXML(root)
             writeTree(tree)
             
     def popItemFromKey(self, key):
@@ -235,7 +235,7 @@ class Mapping:
             elt = self.toXml()
             self.setIsCurrent(root, elt)
             root.append(elt)
-            indent(root)
+            util.indentXML(root)
             writeTree(tree)
     
     def toXml(self):
@@ -330,30 +330,6 @@ def loadTree():
             
     
 
-def isblank(s):
-    """Return True if s is empty or whitespace only."""
-    return not s or s.isspace()
-
-def indent(elem, indent_string="    ", level=0):
-    """Indent the XML in element.
-    
-    Text content that is already non-whitespace is not changed.
-    
-    """
-    # based on http://effbot.org/zone/element-lib.htm#prettyprint
-    i = "\n" + indent_string * level
-    if len(elem):
-        if isblank(elem.text):
-            elem.text = i + indent_string
-        if isblank(elem.tail):
-            elem.tail = i
-        for elem in elem:
-            indent(elem, indent_string, level+1)
-        if isblank(elem.tail):
-            elem.tail = i
-    else:
-        if level and isblank(elem.tail):
-            elem.tail = i
 
 def _getAll(attr):
     configPath = util.configPath()
