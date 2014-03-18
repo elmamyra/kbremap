@@ -29,6 +29,7 @@ from kbremap_app import util
 from kbremap_app import info
 import os, sys
 from subprocess import Popen
+import importExport
 import __main__
 PORT = 45691
 
@@ -142,7 +143,7 @@ class MainWindow(QMainWindow):
         self.keyboardEditor.setMode(mode)
         self.keyboardEditor.loadLayout()
         
-        self.action.loadAction.setEnabled(bool(mapping.getAllNames()))
+        self.enableAction()
         self._autoUpdate = util.str2bool(settings.value('autoUpdate', 'true'))
         
     def setMenu(self):
@@ -178,7 +179,6 @@ class MainWindow(QMainWindow):
         menuMode.addAction(a.shortcutModeAction)
         menuMode.addAction(a.remappingModeAction)
         self.setMenuBar(menu)
-        self.enableAction()
     
     def setToolBar(self):
         a = self.action
@@ -206,10 +206,14 @@ class MainWindow(QMainWindow):
         
         
     def enableAction(self):
-        val = self._mapping.isValid()
         a = self.action
+        isValid = self._mapping.isValid()
         for act in (a.renameAction, a.deleteAction, a.exportAction):
-            act.setEnabled(val)
+            act.setEnabled(isValid)
+        
+        hasMapping =  bool(mapping.getAllNames())
+        for act in (a.exportAction, a.loadAction):
+            act.setEnabled(hasMapping)
     
     def updateTitle(self):
         mappingTitle = self._mapping.title or self.tr("Untitled")
@@ -232,8 +236,6 @@ class MainWindow(QMainWindow):
     
     def mapping(self):   
         return self._mapping
-        
-    
     
     def slotKeyboardModel(self, modelName):
         self.keyboardEditor.setModel(modelName)
@@ -283,16 +285,16 @@ class MainWindow(QMainWindow):
             self._mapping.delete()
             self.enableAction()
             self.updateTitle()
-            self.fillLoadMenu()
             self.keyboardEditor.setDisabled(True)
             self.keyboardEditor.keyModified.emit()
             self.keyboardEditor.loadLayout()
             
     def slotImport(self):
-        print 'not implemented'
+        importExport.import_(self)
+        self.enableAction()
         
     def slotExport(self):
-        print 'not implemented'
+        importExport.export(self)
         
     def slotPreference(self):
         dlg = preferences.PreferenceDialog(self)
