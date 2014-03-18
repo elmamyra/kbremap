@@ -258,16 +258,18 @@ class Mapping:
     
     def loadCurrent(self):
         tree = loadTree()
+        if not tree:
+            return False
         root = tree.getroot()
         currentElt = root.find("mapping[@isCurrent]")
         if currentElt is not None:
-            self.load(currentElt.get('name'))
-            return True
+            return self.load(currentElt.get('name'))
         return False
-         
             
     def load(self, name):
         tree = loadTree()
+        if not tree:
+            return False
         root = tree.getroot()
         self._notify = {'true': True, 'false': False}.get(root.get('notify'), False)
         mappingElt = root.find("mapping[@name='{}']".format(name))
@@ -322,9 +324,12 @@ def loadTree():
     configPath = util.configPath()
     try:
         tree = ET.parse(configPath)
-    except:
-        elt = ET.Element('mappingList', attrib={'notify': 'true', 'version': '1.0'})
-        tree = ET.ElementTree(elt)
+    except ET.ParseError, err:
+        if err.code == 3:
+            elt = ET.Element('mappingList', attrib={'notify': 'true', 'version': '1.0'})
+            tree = ET.ElementTree(elt)
+        else:
+            return None
     return tree     
     
             
