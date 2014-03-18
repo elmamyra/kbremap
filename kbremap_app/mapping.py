@@ -324,12 +324,9 @@ def loadTree():
     configPath = util.configPath()
     try:
         tree = ET.parse(configPath)
-    except ET.ParseError, err:
-        if err.code == 3:
-            elt = ET.Element('mappingList', attrib={'notify': 'true', 'version': '1.0'})
-            tree = ET.ElementTree(elt)
-        else:
-            return None
+    except ET.ParseError:
+        elt = ET.Element('mappingList', attrib={'notify': 'true', 'version': '1.0'})
+        tree = ET.ElementTree(elt)
     return tree     
     
             
