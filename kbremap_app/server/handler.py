@@ -62,13 +62,13 @@ class Handler(object):
         self.log.handler_('grab keys')
         for item in self.mapping.shortcut:
             if item.type not in exceptType:
-                self.keyTools.grabKey(item.keycode, item.modifiers)
+                self.keyTools.grabKey(item.keycode, item.modMask)
                 
     def ungrabKeys(self, exceptType=()):
         self.log.handler_('ungrab keys')
         for item in self.mapping.shortcut:
             if item.type not in exceptType:
-                self.keyTools.ungrabKey(item.keycode, item.modifiers)
+                self.keyTools.ungrabKey(item.keycode, item.modMask)
             
     def remapKeys(self):
         for item in self.mapping.remap:
@@ -96,7 +96,7 @@ class Handler(object):
         while self.running:
             event = self.keyTools.nextKeyEvent()
             if event:
-                modMask = self.keyTools.removeNumLockMask(event.keycode, event.modifiers)
+                modMask = self.keyTools.removeNumLockMask(event.keycode, event.modMask)
                 item = self.mapping.shortcut[event.keycode, modMask]
                 if item:
                     self.log.handler_('item send: type=%s, data=%s', item.type, item.data)

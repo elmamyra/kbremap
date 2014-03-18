@@ -22,9 +22,9 @@ import unicodedata
 
 
 class ShortcutItem:
-    def __init__(self, keycode, modifiers, typ, data, displayType, displayValue):
+    def __init__(self, keycode, modMask, typ, data, displayType, displayValue):
         self.keycode = keycode
-        self.modifiers = modifiers
+        self.modMask = modMask
         self.type = typ
         self.data = data
         self.displayType = displayType
@@ -48,12 +48,12 @@ class ShortcutItem:
         if len(data) == 1:
             data = data[0]
         keycode = int(elt.get('keycode'))
-        modifiers = int(elt.get('modifiers'), 16)
+        modMask = int(elt.get('modMask'), 16)
         typ = int(elt.get('type'))
         displayType = int(elt.get('displayType'))
         displayValue = elt.get('displayValue')
         
-        return ShortcutItem(keycode, modifiers, typ, data, displayType, displayValue)
+        return ShortcutItem(keycode, modMask, typ, data, displayType, displayValue)
             
             
         
@@ -61,7 +61,7 @@ class ShortcutItem:
     def toXml(self):
         attrib = {'type': str(self.type),
                   'keycode': str(self.keycode), 
-                  'modifiers': hex(self.modifiers),
+                  'modMask': hex(self.modMask),
                   'displayType': str(self.displayType),
                   'displayValue': unicode(self.displayValue)
                   }
@@ -81,8 +81,8 @@ class ShortcutItem:
         return item
         
     def __repr__(self):
-        return "<mapping.ShortcutItem keycode={}, modifiers={}, type={}, data={}>"\
-                    .format(self.keycode, hex(self.modifiers), self.type, self.data)
+        return "<mapping.ShortcutItem keycode={}, modMask={}, type={}, data={}>"\
+                    .format(self.keycode, hex(self.modMask), self.type, self.data)
 
 
 class RemapItem:
@@ -186,7 +186,7 @@ class ShortcutSubMapping(SubMappingBase):
         pass
     
     def addItem(self, item):
-        self._items[(item.keycode, item.modifiers)] = item
+        self._items[(item.keycode, item.modMask)] = item
         
     
             

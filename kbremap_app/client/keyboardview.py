@@ -614,7 +614,7 @@ class KeyboardView(QGraphicsView):
             newCibleMItem = sourceMItem
             newCibleMItem.keycode = cibleKey.keycode()
             if self._mode == d.SHORTCUT_MODE:
-                newCibleMItem.modifiers = modMask
+                newCibleMItem.modMask = modMask
 
             self._subMapping.addItem(newCibleMItem)
             
@@ -622,7 +622,7 @@ class KeyboardView(QGraphicsView):
                 newSourceMItem = cibleMItem
                 if self._mode == d.SHORTCUT_MODE:
                     newSourceMItem.keycode = sourceMItem.keycode
-                    newSourceMItem.modifiers = sourceMItem.modifiers
+                    newSourceMItem.modMask = sourceMItem.modMask
                 else:
                     newSourceMItem.keysyms = sourceMItem.keysyms
                 self._subMapping.addItem(newSourceMItem)

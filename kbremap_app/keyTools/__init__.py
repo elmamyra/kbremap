@@ -28,7 +28,7 @@ from itertools import groupby
 from operator import itemgetter
 
 
-keyEvent = namedtuple('keyEvent', ['type', 'keycode', 'modifiers'])
+keyEvent = namedtuple('keyEvent', ['type', 'keycode', 'modMask'])
 
 DEAD_KEYS = (
     'grave',
@@ -273,15 +273,15 @@ class KeyTools:
         return False
     
         
-    def grabKey(self, keycode, modifiers):
-        self._xroot.grab_key(keycode, modifiers, 0, X.GrabModeAsync, X.GrabModeAsync)
-        if not self.isKeypadKey(keycode) and not modifiers & X.Mod2Mask:
-            self._xroot.grab_key(keycode, modifiers | X.Mod2Mask, 0, X.GrabModeAsync, X.GrabModeAsync)
+    def grabKey(self, keycode, modMask):
+        self._xroot.grab_key(keycode, modMask, 0, X.GrabModeAsync, X.GrabModeAsync)
+        if not self.isKeypadKey(keycode) and not modMask & X.Mod2Mask:
+            self._xroot.grab_key(keycode, modMask | X.Mod2Mask, 0, X.GrabModeAsync, X.GrabModeAsync)
             
-    def ungrabKey(self, keycode, modifiers):
-        self._xroot.ungrab_key(keycode, modifiers)
-        if not self.isKeypadKey(keycode) and not modifiers & X.Mod2Mask:
-            self._xroot.ungrab_key(keycode, modifiers | X.Mod2Mask)
+    def ungrabKey(self, keycode, modMask):
+        self._xroot.ungrab_key(keycode, modMask)
+        if not self.isKeypadKey(keycode) and not modMask & X.Mod2Mask:
+            self._xroot.ungrab_key(keycode, modMask | X.Mod2Mask)
     
     def nextKeyEvent(self, typ=KEY_PRESS):
         if isinstance(typ, int):
