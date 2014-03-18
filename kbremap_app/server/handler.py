@@ -34,18 +34,24 @@ class Handler(object):
         
     def update(self):
         self.ungrabKeys()
-        self.mapping = mapping.Mapping()
-        self.mapping.loadCurrent()
-        self.log.handler_('load mapping (%s)', self.mapping.title or 'none')
+#         self.mapping = mapping.Mapping()
         self.restoreMap()
-        self.grabKeys()
-        self.remapKeys()
+        if self.mapping.loadCurrent():
+            self.log.handler_('load mapping (%s)', self.mapping.title)
+            self.grabKeys()
+            self.remapKeys()
+        else:
+            print 'No mapping loaded'
+            self.log.handler_('No mapping loaded')
     
     def start(self):
-        self.mapping.loadCurrent()
-        self.log.handler_('start (%s)', self.mapping.title or 'none')
-        self.grabKeys()
-        self.remapKeys()
+        if self.mapping.loadCurrent():
+            self.log.handler_('start (%s)', self.mapping.title)
+            self.grabKeys()
+            self.remapKeys()
+        else:
+            print 'No mapping loaded'
+            self.log.handler_('No mapping loaded')
         th = threading.Thread(target=self.eventThread)
         th.start()
     
