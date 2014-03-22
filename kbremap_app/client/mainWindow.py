@@ -174,8 +174,7 @@ class MainWindow(QMainWindow):
         menuServer.addAction(a.syncAction)
         menuServer.addSeparator()
         
-        menuKeyboard = menu.addMenu(self.tr("Keyboard"))
-        menuMode = menuKeyboard.addMenu(self.tr("Mode"))
+        menuMode = menu.addMenu(self.tr("Mode"))
         menuMode.addAction(a.shortcutModeAction)
         menuMode.addAction(a.remappingModeAction)
         self.setMenuBar(menu)
