@@ -696,6 +696,17 @@ class KeyboardView(QGraphicsView):
         else:
             self._subMapping = self.mapping().remap
     
+    def clearCurrentModMask(self):
+        if self._mode == d.SHORTCUT_MODE:
+            for item in self._subMapping:
+                mod = self._keyTools.removeNumLockMask(item.keycode, self._currentModifier)
+                if item.modMask == mod:
+                    self._subMapping.popItem(item)
+            self.loadLayout()
+            self._subMapping.save()
+            self.keyModified.emit()
+            
+    
     def keys(self):
         return self._keys
     
