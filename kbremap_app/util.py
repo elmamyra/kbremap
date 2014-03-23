@@ -51,8 +51,9 @@ def str2bool(v):
 def keyboardColors(name):
     return d.KEYBOARD_COLOR.get(name, QColor())
 
+configDir = os.environ.get('XDG_CONFIG_HOME') or os.path.expanduser("~/.config")
+
 def configPath(fileName='mappings.xml'):
-        configDir = os.environ.get('XDG_CONFIG_HOME') or os.path.expanduser("~/.config")
         return os.path.join(configDir, info.name, fileName)
 
 def keysym2text(keysym):
