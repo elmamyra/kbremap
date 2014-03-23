@@ -27,15 +27,12 @@ import data as cst
 import icons
 from kbremap_app import util
 from kbremap_app import info
-import os, sys
+import sys
 from subprocess import Popen
 import importExport
-import __main__
-PORT = 45691
 
 class MainWindow(QMainWindow):
     modelChanged = Signal(str)
-    autoStartChanged = Signal(bool)
     autoUpdateChanged = Signal(bool)
     notifyChanged = Signal(bool)
     updated = Signal()
@@ -67,7 +64,6 @@ class MainWindow(QMainWindow):
         self.network.serverClosed.connect(self.slotServerClosed)
         self.network.connect_()
         self.modelChanged.connect(self.slotKeyboardModel)
-        self.autoStartChanged.connect(self.slotAutoStart)
         self.autoUpdateChanged.connect(self.slotAutoUpdate)
         self.notifyChanged.connect(self.slotNotify)
         self.show()
@@ -312,27 +308,6 @@ class MainWindow(QMainWindow):
     def slotSync(self):
         self.network.send('update')
         
-    def slotAutoStart(self, val):
-        configPath = os.environ.get('XDG_CONFIG_HOME') or os.path.expanduser('~/.config/')
-        autoStartPath = os.path.join(configPath, 'autostart')
-        filePath = os.path.join(autoStartPath, 'speedy-keyboard-server.desktop')
-        if val:
-            path = __main__.__file__
-            text = "[Desktop Entry]\n"
-            text += "Type=Application\n"
-            text += "Exec={} -s\n".format(path)
-            text += "Icon={}.svg\n".format(path)
-            text += "Name={}\n".format(info.name)
-            text += "Comment={} server\n".format(info.name)
-            if not os.path.exists(autoStartPath):
-                os.makedirs(autoStartPath)
-                
-            with open(filePath, 'w') as f:
-                f.write(text)
-        else:
-            if os.path.exists(filePath):
-                os.remove(filePath)
-    
     def slotAutoUpdate(self, val):
         self._autoUpdate = val
     
@@ -387,9 +362,9 @@ class Action(QObject):
         parent.addAction(a)
         self.daemonStopAction = act(self.tr("Stop"), parent.slotDeamonStop, None, 'media-playback-stop')
         self.syncAction = act(self.tr("Synchronize"), parent.slotSync, None, 'sync')
-        a.setCheckable(True)
-        a.toggled.connect(parent.slotAutoStart)
-        parent.addAction(a)
+#         a.setCheckable(True)
+#         a.toggled.connect(parent.slotAutoStart)
+#         parent.addAction(a)
         self.modeGroupAction = mg = QActionGroup(parent)
         mg.triggered.connect(parent.slotModeChanged)
         self.shortcutModeAction = a = mg.addAction(icons.get('shortcuts'), self.tr("Shortcut"))
