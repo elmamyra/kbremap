@@ -126,6 +126,9 @@ class SubMappingBase:
     def clear(self):
         self._items = {}
         
+    def isEmpty(self):
+        return not bool(self._items)
+        
     def getItem(self, key):
         return self._items.get(key)
         
@@ -308,13 +311,14 @@ class Mapping:
             mappingElt = root.find("mapping[@name='{}']".format(self.name))
             if mappingElt is not None:
                 root.remove(mappingElt)
-#                 indent(root)
                 writeTree(tree)
                 self.clear()
                 
     def isValid(self):
         return bool(self.name) and bool(self.title)
     
+    def isEmpty(self):
+        return self.shortcut.isEmpty() and self.remap.isEmpty()
     
 
 def writeTree(tree):
