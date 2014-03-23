@@ -23,7 +23,7 @@ from dialogNew import DialogNew
 import preferences
 import network
 from kbremap_app import mapping
-import data as cst
+import data as d
 import icons
 from kbremap_app import util
 from kbremap_app import info
@@ -125,7 +125,8 @@ class MainWindow(QMainWindow):
         
         self.keyboardModel = settings.value('keyboardModel', 'generic_105')
         self.keyboardEditor.setModel(self.keyboardModel)
-        mode = int(settings.value('mode', cst.SHORTCUT_MODE))
+        mode = int(settings.value('mode', d.SHORTCUT_MODE))
+        
         for act in self.action.modeGroupAction.actions():
             if act.data() == mode:
                 act.setChecked(True)
@@ -151,6 +152,8 @@ class MainWindow(QMainWindow):
         menuFile.addMenu(a.loadMenu)
         menuFile.addAction(a.renameAction)
         menuFile.addAction(a.deleteAction)
+        menuFile.addAction(a.clearThisModifier)
+        a.clearThisModifier.setEnabled(a.shortcutModeAction.isChecked())
         menuFile.addSeparator()
         menuFile.addAction(a.importAction)
         menuFile.addAction(a.exportAction)
@@ -203,7 +206,7 @@ class MainWindow(QMainWindow):
     def enableAction(self):
         a = self.action
         isValid = self._mapping.isValid()
-        for act in (a.renameAction, a.deleteAction, a.exportAction):
+        for act in (a.renameAction, a.deleteAction, a.clearThisModifier, a.exportAction):
             act.setEnabled(isValid)
         
         hasMapping =  bool(mapping.getAllNames())
@@ -271,11 +274,12 @@ class MainWindow(QMainWindow):
     
     def slotDelete(self):
         if self._mapping.isValid():
-            mess = self.tr("do you really want delete this \
-                        layout <b>{name}</b> and all its items?").format(name=self._mapping.title)
-            resp = QMessageBox.question(self, self.tr("Warning"), mess, QMessageBox.Yes, QMessageBox.No)
-            if resp == QMessageBox.No:
-                return
+            if not self._mapping.isEmpty():
+                mess = self.tr("do you really want delete this \
+                            layout <b>{name}</b> and all its items?").format(name=self._mapping.title)
+                resp = QMessageBox.question(self, self.tr("Warning"), mess, QMessageBox.Yes, QMessageBox.No)
+                if resp == QMessageBox.No:
+                    return
             
             self._mapping.delete()
             self.enableAction()
@@ -283,7 +287,16 @@ class MainWindow(QMainWindow):
             self.keyboardEditor.setDisabled(True)
             self.keyboardEditor.keyModified.emit()
             self.keyboardEditor.loadLayout()
-            
+    
+    def slotClearThisModifier(self):
+        if self.currentMode() == d.SHORTCUT_MODE:
+            mess = self.tr("do you really want delete all items for this modifier mask?")
+            resp = QMessageBox.question(self, self.tr("Warning"), mess, QMessageBox.Yes, QMessageBox.No)
+            if resp == QMessageBox.No:
+                return
+                
+            self.keyboardEditor.clearCurrentModMask()
+        
     def slotImport(self):
         importExport.import_(self)
         self.enableAction()
@@ -315,6 +328,8 @@ class MainWindow(QMainWindow):
         self.network.send('change-notify {}'.format(val))
         
     def slotModeChanged(self, act):
+        mode = act.data()
+        self.action.clearThisModifier.setEnabled(mode == d.SHORTCUT_MODE)
         self.keyboardEditor.setMode(act.data())
         self.keyboardEditor.loadLayout()
         
@@ -350,6 +365,7 @@ class Action(QObject):
         self.newAction = act(self.tr("New..."), parent.slotNew, Qt.Key_N, 'document-new')
         self.renameAction = act(self.tr("Rename..."), parent.slotRename, Qt.Key_R, 'go-jump')
         self.deleteAction = act(self.tr("Delete"), parent.slotDelete, Qt.Key_D, 'edit-delete')
+        self.clearThisModifier = act(self.tr("Clear this modifier"), parent.slotClearThisModifier, Qt.Key_C, 'edit-clear')
         self.importAction = act(self.tr("Import..."), parent.slotImport, Qt.Key_I, 'folder-open')
         self.exportAction = act(self.tr("Export..."), parent.slotExport, Qt.Key_X, 'document-save-as')
         self.preferencesAction = act(self.tr("Prefernces..."), parent.slotPreference, Qt.Key_P, 'preferences-system')
@@ -362,19 +378,16 @@ class Action(QObject):
         parent.addAction(a)
         self.daemonStopAction = act(self.tr("Stop"), parent.slotDeamonStop, None, 'media-playback-stop')
         self.syncAction = act(self.tr("Synchronize"), parent.slotSync, None, 'sync')
-#         a.setCheckable(True)
-#         a.toggled.connect(parent.slotAutoStart)
-#         parent.addAction(a)
         self.modeGroupAction = mg = QActionGroup(parent)
         mg.triggered.connect(parent.slotModeChanged)
         self.shortcutModeAction = a = mg.addAction(icons.get('shortcuts'), self.tr("Shortcut"))
         a.setCheckable(True)
-        a.setData(cst.SHORTCUT_MODE)
+        a.setData(d.SHORTCUT_MODE)
         parent.addAction(a)
-        self.shortcutModeAction.setData(cst.SHORTCUT_MODE)
+        self.shortcutModeAction.setData(d.SHORTCUT_MODE)
         self.remappingModeAction = a = mg.addAction(icons.get('keys'), self.tr("Remapping"))
         a.setCheckable(True)
-        a.setData(cst.REMAPPING_MODE)
+        a.setData(d.REMAPPING_MODE)
         parent.addAction(a)
 
 def start():
