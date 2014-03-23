@@ -20,10 +20,13 @@ from PySide.QtCore import Qt
 from widgets import ShortcutWidget, SearchButton
 import os
 from kbremap_app import mapping, util, keyTools
+import data as d
+
 
 class PageBase(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, dialog=None):
         QWidget.__init__(self)
+        self.dialog = dialog
         self._data = None
         self.layout = QHBoxLayout(self)
         
@@ -32,6 +35,11 @@ class PageBase(QWidget):
     
     def isValid(self):
         return True
+    
+    def dialogHasIcon(self):
+        if not self.dialog:
+            return False
+        return self.dialog.displayType() == d.GR_ICON and self.dialog.hasIcon()
     
     def setData(self, data):
         pass
@@ -48,11 +56,12 @@ class PageEmpty(PageBase):
 
 
 class PageText(PageBase):
-    def __init__(self):
-        PageBase.__init__(self)
+    def __init__(self, dialog):
+        PageBase.__init__(self, dialog)
         self.lineEdit = QLineEdit(self)
         self.layout.addWidget(QLabel(self.tr("Text:")))
         self.layout.addWidget(self.lineEdit)
+        self.lineEdit.textChanged.connect(self.slotTextChanged)
     
     def start(self):
         self.lineEdit.setFocus(Qt.OtherFocusReason)
@@ -63,6 +72,10 @@ class PageText(PageBase):
     def setData(self, data):
         self.lineEdit.setText(data)
     
+    def slotTextChanged(self, text):
+        if not self.dialogHasIcon():
+            self.dialog.textEvent.emit(text[:7])
+    
     def isValid(self):
         return bool(self.lineEdit.text())
     
@@ -72,8 +85,7 @@ class PageText(PageBase):
     
 class PageKey(PageBase):
     def __init__(self, dialog):
-        PageBase.__init__(self)
-        self.dialog = dialog
+        PageBase.__init__(self, dialog)
         self._keysym = 0
         ktools = keyTools.KeyTools()
         menu = QMenu(self)
@@ -109,7 +121,8 @@ class PageKey(PageBase):
     def updateButtonText(self):
         self.menuButton.setText(util.keysym2text(self._keysym))
         text = keyTools.keysym2char(self._keysym) or keyTools.keysym2name(self._keysym)[:5]
-        self.dialog.textEvent.emit(text)
+        if not self.dialogHasIcon():
+            self.dialog.textEvent.emit(text)
     
     def slotSearch(self, keysym):
         self._keysym = keysym
@@ -131,19 +144,17 @@ class PageKey(PageBase):
     
 class PageCommand(PageBase):
     def __init__(self, dialog):
-        PageBase.__init__(self)
-        self.dialog = dialog
+        PageBase.__init__(self, dialog)
         self.lineEdit = QLineEdit(self)
         self.lineEdit.setAcceptDrops(False)
         self.layout.addWidget(QLabel(self.tr("Command:")))
         self.layout.addWidget(self.lineEdit)
         self.setAcceptDrops(True)
+        self.lineEdit.textChanged.connect(self.slotCommandChanged)
     
     def dragEnterEvent(self, e):
-      
         if e.mimeData().hasFormat('text/plain'):
             e.accept()
-             
         else:
             e.ignore() 
 
@@ -165,7 +176,7 @@ class PageCommand(PageBase):
                         icon = line.split('=')[1]
                 
                 self.lineEdit.setText(command.strip())
-                self.dialog.iconEvent.emit(icon.strip())
+                self.dialog.iconEvent.emit(icon.strip())    
         else:
             self.lineEdit.setText(text)
         
@@ -177,16 +188,21 @@ class PageCommand(PageBase):
     
     def isValid(self):
         return bool(self.lineEdit.text())
+
     
     def errorMessage(self):
         return self.tr("You must enter a command.")   
     
+    def slotCommandChanged(self, text):
+        if not self.dialogHasIcon():
+            self.dialog.textEvent.emit(text[:7])
         
 class PageShortcut(PageBase):
-    def __init__(self):
-        PageBase.__init__(self)
+    def __init__(self, dialog):
+        PageBase.__init__(self, dialog)
         self.shortcutWidget = ShortcutWidget()
         self.layout.addWidget(self.shortcutWidget)
+        self.shortcutWidget.shortcutChanged.connect(self.slotShortcutChanged)
     
     def start(self):
         self.shortcutWidget.setFocus(Qt.OtherFocusReason)
@@ -202,13 +218,15 @@ class PageShortcut(PageBase):
     
     def errorMessage(self):
         return self.tr("You must enter a shortcut.")   
-        
+    
+    def slotShortcutChanged(self):
+        if not self.dialogHasIcon():
+            self.dialog.textEvent.emit(self.shortcutWidget.text())
 
 
 class PageLoad(PageBase):
     def __init__(self, dialog):
-        PageBase.__init__(self)
-        self.dialog = dialog
+        PageBase.__init__(self, dialog)
         self.combo = QComboBox()
         self.layout.addWidget(self.combo)
         self.layout.addStretch(1)
@@ -224,7 +242,8 @@ class PageLoad(PageBase):
         self.dialog.textEvent.emit(self.combo.currentText())
     
     def slotCombo(self, title):
-        self.dialog.textEvent.emit(self.combo.currentText())
+        if not self.dialogHasIcon():
+            self.dialog.textEvent.emit(self.combo.currentText())
     
     
     def setData(self, data):

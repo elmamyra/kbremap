@@ -59,6 +59,12 @@ class IconChooser(QToolButton):
     def getIcon(self):
         return self.defaultAction().data()
     
+    def clear(self):
+        act = self.defaultAction()
+        act.setData(None)
+        act.setIcon(QIcon())
+        
+    
     def setIcon(self, icon):
         self.defaultAction().setIcon(icons.get(icon))
         self.defaultAction().setData(icon)
@@ -66,6 +72,7 @@ class IconChooser(QToolButton):
 
 
 class ShortcutWidget(QLineEdit):
+    shortcutChanged = Signal()
     def __init__(self, parent=None):
         super(ShortcutWidget, self).__init__(parent)
         self.nativeKeycode = -1
@@ -97,6 +104,7 @@ class ShortcutWidget(QLineEdit):
                         self.setText(keysText.replace('+, ', '+'))
                         self.nativeModifiers = event.nativeModifiers()
                         self.nativeKeycode = event.nativeScanCode()
+                        self.shortcutChanged.emit()
 
     def setData(self, keycode, modifiers, text):
         self.nativeKeycode = keycode

@@ -236,10 +236,10 @@ class ShortcutDialog(QDialog):
             else:
                 self.typeChooser.insertSeparator(self.typeChooser.count())
         
-        self.typeToPage = {cst.TEXT: PageText(),
+        self.typeToPage = {cst.TEXT: PageText(self),
                            cst.KEY: PageKey(self),
                            cst.COMMAND: PageCommand(self),
-                           cst.SHORTCUT: PageShortcut(),
+                           cst.SHORTCUT: PageShortcut(self),
                             cst.LOAD: PageLoad(self)
                         }
         
@@ -286,22 +286,30 @@ class ShortcutDialog(QDialog):
         if not page.isValid():
             QMessageBox.warning(self, self.tr("Warning"), page.errorMessage())
             return
-        self.displayType = d.GR_ICON if self.radioIcon.isChecked() else d.GR_TEXT
-        self.displayValue = self.iconChooser.getIcon() if self.displayType == d.GR_ICON else self.textLineEdit.text()
-        if not self.displayValue:
-            if self.displayType == d.GR_ICON:
+        displayType = self.displayType()
+        displayValue = self.iconChooser.getIcon() if displayType == d.GR_ICON else self.textLineEdit.text()
+        if not displayValue:
+            if displayType == d.GR_ICON:
                 mess = self.tr("You must select an icon")
             else:
                 mess = self.tr("You must enter a text")
             QMessageBox.warning(self, self.tr("Warning"), mess)
             return
-        self.data = typ, page.data(), self.displayType, self.displayValue
+        self.data = typ, page.data(), displayType, displayValue
         self.done(QDialog.Accepted)
     
     def getData(self):
         return self.data
     
+    def displayType(self):
+        return d.GR_ICON if self.radioIcon.isChecked() else d.GR_TEXT
+    
+    def hasIcon(self):
+        return bool(self.iconChooser.getIcon())
+    
     def slotTypeChanged(self, index):
+        self.iconChooser.clear()
+        self.textLineEdit.clear()
         typ = self.typeChooser.itemData(index)
         page = self.typeToPage.get(typ, self.pageEmpty)
         if isinstance(page, PageEmpty):
