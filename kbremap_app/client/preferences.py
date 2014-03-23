@@ -20,7 +20,9 @@ from PySide.QtGui import *  # @UnusedWildImport
 from PySide.QtCore import QSettings
 from kbremap_app import util
 from widgets import Separator
-
+import os
+import __main__
+from kbremap_app import info
 
 class PreferenceDialog(QDialog):
     
@@ -32,9 +34,9 @@ class PreferenceDialog(QDialog):
         settings = QSettings()
         #startup
         startupCheck = QCheckBox(self.tr("Launch at startup"))
-        autoStart = util.str2bool(settings.value('autoStart', 'false'))
+        autoStart = os.path.exists(os.path.join(util.configDir, 'autostart', 'kpremap-server.desktop'))
         startupCheck.setChecked(autoStart)
-        startupCheck.stateChanged.connect(self.slotStartup)
+        startupCheck.stateChanged.connect(self.slotAutoStart)
         #auto update
         updateCheck = QCheckBox(self.tr("Automatically update the server"))
         autoUpdate = util.str2bool(settings.value('autoUpdate', 'true'))
@@ -81,11 +83,28 @@ class PreferenceDialog(QDialog):
         model = self.comboModel.itemData(index)
         self.parent().modelChanged.emit(model)
         QSettings().setValue('keyboardModel', model)
-        
-    def slotStartup(self, state):
-        state = bool(state)
-        self.parent().autoStartChanged.emit(state)
-        QSettings().setValue('autoStart', state)
+    
+    def slotAutoStart(self, val):
+        print __main__.__file__
+        configDir = os.environ.get('XDG_CONFIG_HOME') or os.path.expanduser('~/.config/')
+        autoStartPath = os.path.join(configDir, 'autostart')
+        filePath = os.path.join(autoStartPath, 'kpremap-server.desktop')
+        if val:
+            path = __main__.__file__
+            text = "[Desktop Entry]\n"
+            text += "Type=Application\n"
+            text += "Exec={} -s\n".format(path)
+            text += "Icon={}.svg\n".format(path)
+            text += "Name={}\n".format(info.name)
+            text += "Comment={} server\n".format(info.name)
+            if not os.path.exists(autoStartPath):
+                os.makedirs(autoStartPath)
+                
+            with open(filePath, 'w') as f:
+                f.write(text)
+        else:
+            if os.path.exists(filePath):
+                os.remove(filePath)
         
     def slotAutoUpdate(self, state):
         state = bool(state)
