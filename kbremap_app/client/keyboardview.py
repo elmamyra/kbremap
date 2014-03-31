@@ -557,7 +557,6 @@ class KeyboardView(QGraphicsView):
             else:
                 key.noSymbol()
             
-    
     def mapping(self):
         return self.mainWindow.mapping()
     
@@ -595,8 +594,6 @@ class KeyboardView(QGraphicsView):
                 self.loadRemapKey(key)
                 self._subMapping.save()
                 self.keyModified.emit()
-                
-                
     
     def slotKeyReleased(self, pos):
         key = self.keyAt(pos)
@@ -607,10 +604,13 @@ class KeyboardView(QGraphicsView):
             cibleKey = key
             if self._mode == d.SHORTCUT_MODE:
                 modMask = self._keyTools.removeNumLockMask(cibleKey.keycode(), self._currentModifier)
-                mapKey = (cibleKey.keycode(), modMask)
+                mapKeyCible = (cibleKey.keycode(), modMask)
+                mapKeySource = (sourceMItem.keycode, sourceMItem.modMask)
             else:
-                mapKey = cibleKey.keycode()
-            cibleMItem = self._subMapping.popItemFromKey(mapKey)
+                mapKeyCible = cibleKey.keycode()
+                mapKeySource = sourceMItem.keycode
+            
+            cibleMItem = self._subMapping.popItemFromKey(mapKeyCible)
             newCibleMItem = sourceMItem
             newCibleMItem.keycode = cibleKey.keycode()
             if self._mode == d.SHORTCUT_MODE:
@@ -621,10 +621,11 @@ class KeyboardView(QGraphicsView):
             if cibleMItem:
                 newSourceMItem = cibleMItem
                 if self._mode == d.SHORTCUT_MODE:
-                    newSourceMItem.keycode = sourceMItem.keycode
-                    newSourceMItem.modMask = sourceMItem.modMask
+                    newSourceMItem.keycode = mapKeySource[0]
+                    newSourceMItem.modMask = mapKeySource[1]
                 else:
-                    newSourceMItem.keysyms = sourceMItem.keysyms
+                    newSourceMItem.keycode = mapKeySource
+                 
                 self._subMapping.addItem(newSourceMItem)
                 
             self.loadLayout()
@@ -675,7 +676,6 @@ class KeyboardView(QGraphicsView):
                 self._subMapping.save()
                 self.loadLayout()
                 self.keyModified.emit()
-                
         
     def keyAt(self, pos):
         key = self.scene().itemAt(pos)
@@ -734,7 +734,6 @@ class KeyboardView(QGraphicsView):
         gradient.setColorAt(1, util.keyboardColors('bg'));
         self.setBackgroundBrush(QBrush(gradient))
         
-        
         self.drawKey()
         self.loadLayout()
     
@@ -743,7 +742,6 @@ class KeyboardView(QGraphicsView):
         if keycode in self._keyTools.modifiersKeycodeList():
             mod = self._keyTools.getModMask(keycode)
             self.modifierPressed.emit(mod)
-                
                 
     def resizeEvent(self, event):
         self.updateSize()
